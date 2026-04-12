@@ -51,6 +51,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         member_id = (request.query_params.get("member_id") or "").strip() or None
         return render_settings_page(initial_member_id=member_id)
 
+    @app.head("/ui/groups")
+    async def groups_ui_head() -> dict[str, str]:
+        return {}
+
     @app.post("/ui/groups", response_class=HTMLResponse)
     async def groups_ui_post(request: Request) -> str:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
@@ -67,6 +71,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/install/callback", response_class=HTMLResponse)
+    async def install_callback_get() -> str:
+        return "Bitrix install callback is ready."
+
+    @app.head("/install/callback")
+    async def install_callback_head() -> dict[str, str]:
+        return {}
 
     @app.post("/install/callback")
     async def install_callback(request: Request) -> dict[str, object]:
