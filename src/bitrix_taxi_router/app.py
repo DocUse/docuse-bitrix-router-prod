@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from urllib.parse import parse_qs
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
+from .bitrix_api import BitrixApiError
 from .database import Database
 from .service import PortalService
 from .settings import Settings
@@ -47,6 +49,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             except Exception as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         return render_blank_page()
+
+    @app.get("/api/ui/groups/reference-data")
+    async def groups_reference_data(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        return _load_reference_data(service.get_reference_data, member_id)
+
+    @app.get("/api/ui/groups/reference-data/users")
+    async def groups_reference_users(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        return {"items": _load_reference_data(service.list_portal_users, member_id)}
+
+    @app.get("/api/ui/groups/reference-data/stages")
+    async def groups_reference_stages(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        return {"items": _load_reference_data(service.list_deal_stages, member_id)}
+
+    @app.get("/api/ui/groups/reference-data/responsible-fields")
+    async def groups_reference_responsible_fields(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        return {"items": _load_reference_data(service.list_responsible_fields, member_id)}
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -120,7 +142,7 @@ def _normalize_bitrix_payload(payload: dict[str, object]) -> dict[str, object]:
             "access_token": normalized.get("AUTH_ID") or "",
             "refresh_token": normalized.get("REFRESH_ID") or "",
             "client_endpoint": f"{scheme}://{domain}/rest/" if domain else "",
-            "server_endpoint": "https://oauth.bitrix24.tech/rest/",
+            "server_endpoint": "https://oauth.bitrix.info/rest/",
             "status": normalized.get("APP_STATUS") or normalized.get("status") or "",
         }
         normalized["auth"] = auth
@@ -159,3 +181,19 @@ def _payload_contains_installable_auth(payload: dict[str, object]) -> bool:
     if not isinstance(auth, dict):
         return False
     return bool(str(auth.get("member_id") or "").strip() and str(auth.get("domain") or "").strip())
+
+
+def _require_member_id(request: Request) -> str:
+    member_id = (request.query_params.get("member_id") or "").strip()
+    if not member_id:
+        raise HTTPException(status_code=400, detail="member_id query parameter is required")
+    return member_id
+
+
+def _load_reference_data(loader: Callable[[str], object], member_id: str) -> object:
+    try:
+        return loader(member_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except BitrixApiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

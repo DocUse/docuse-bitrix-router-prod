@@ -1,15 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable, Protocol
 
+from .bitrix_api import BitrixApiError, BitrixClient
 from .contracts import PortalAuth
 from .database import Database
 
 
+class BitrixListClient(Protocol):
+    def call(self, method: str, params: dict[str, object] | None = None) -> dict[str, Any]:
+        ...
+
+    def call_list(self, method: str, params: dict[str, object] | None = None) -> list[dict[str, Any]]:
+        ...
+
+
 class PortalService:
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+        *,
+        bitrix_client_factory: Callable[[PortalAuth], BitrixListClient] | None = None,
+    ) -> None:
         self.database = database
+        self.bitrix_client_factory = bitrix_client_factory or BitrixClient
 
     def install_portal(self, payload: dict[str, Any]) -> dict[str, Any]:
         auth = self._extract_auth_payload(payload)
@@ -43,6 +58,32 @@ class PortalService:
             server_endpoint=_as_optional_str(row["server_endpoint"]),
             application_token=_as_optional_str(row["application_token"]),
             status=_as_optional_str(row["status"]),
+        )
+
+    def get_reference_data(self, portal_member_id: str) -> dict[str, list[dict[str, object]]]:
+        client = self._get_bitrix_client(portal_member_id)
+        return {
+            "users": self._normalize_users(client.call_list("user.get")),
+            "stages": self._normalize_stages(
+                client.call_list("crm.status.list", {"filter": {"ENTITY_ID": "DEAL_STAGE"}})
+            ),
+            "responsible_fields": self._normalize_responsible_fields(
+                client.call("crm.item.fields", {"entityTypeId": 2, "useOriginalUfNames": "Y"})
+            ),
+        }
+
+    def list_portal_users(self, portal_member_id: str) -> list[dict[str, object]]:
+        client = self._get_bitrix_client(portal_member_id)
+        return self._normalize_users(client.call_list("user.get"))
+
+    def list_deal_stages(self, portal_member_id: str) -> list[dict[str, object]]:
+        client = self._get_bitrix_client(portal_member_id)
+        return self._normalize_stages(client.call_list("crm.status.list", {"filter": {"ENTITY_ID": "DEAL_STAGE"}}))
+
+    def list_responsible_fields(self, portal_member_id: str) -> list[dict[str, object]]:
+        client = self._get_bitrix_client(portal_member_id)
+        return self._normalize_responsible_fields(
+            client.call("crm.item.fields", {"entityTypeId": 2, "useOriginalUfNames": "Y"})
         )
 
     def _extract_auth_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -109,6 +150,100 @@ class PortalService:
                 now,
             ),
         )
+
+    def _get_bitrix_client(self, portal_member_id: str) -> BitrixListClient:
+        portal = self.get_portal(portal_member_id)
+        return self.bitrix_client_factory(portal)
+
+    def _normalize_users(self, rows: list[dict[str, Any]]) -> list[dict[str, object]]:
+        users: list[dict[str, object]] = []
+        for row in rows:
+            user_id = str(row.get("ID") or "").strip()
+            if not user_id:
+                continue
+
+            full_name = " ".join(
+                part for part in (str(row.get("NAME") or "").strip(), str(row.get("LAST_NAME") or "").strip()) if part
+            )
+            display_name = full_name or str(row.get("EMAIL") or "").strip() or f"Пользователь {user_id}"
+
+            users.append(
+                {
+                    "id": user_id,
+                    "name": display_name,
+                    "is_active": str(row.get("ACTIVE") or "").upper() != "N",
+                    "source": "bitrix:user.get",
+                }
+            )
+
+        users.sort(key=lambda item: (str(item["name"]).casefold(), str(item["id"])))
+        return users
+
+    def _normalize_stages(self, rows: list[dict[str, Any]]) -> list[dict[str, object]]:
+        stages: list[dict[str, object]] = []
+        for row in rows:
+            stage_id = str(row.get("STATUS_ID") or "").strip()
+            name = str(row.get("NAME") or "").strip()
+            if not stage_id or not name:
+                continue
+
+            raw_sort = row.get("SORT")
+            try:
+                sort_order = int(raw_sort) if raw_sort is not None else 999999
+            except (TypeError, ValueError):
+                sort_order = 999999
+
+            stages.append(
+                {
+                    "id": stage_id,
+                    "name": name,
+                    "sort": sort_order,
+                    "source": "bitrix:crm.status.list",
+                }
+            )
+
+        stages.sort(key=lambda item: (int(item["sort"]), str(item["name"]).casefold(), str(item["id"])))
+        return stages
+
+    def _normalize_responsible_fields(self, payload: dict[str, Any]) -> list[dict[str, object]]:
+        result = payload.get("result")
+        fields_map: dict[str, Any] | None = None
+        if isinstance(result, dict):
+            nested_fields = result.get("fields")
+            if isinstance(nested_fields, dict):
+                fields_map = nested_fields
+            else:
+                fields_map = result
+        if fields_map is None:
+            raise BitrixApiError("Bitrix API field metadata response has an unexpected format")
+
+        fields: list[dict[str, object]] = []
+        for field_key, meta in fields_map.items():
+            if not isinstance(meta, dict):
+                continue
+
+            field_id = str(meta.get("upperName") or field_key).strip()
+            field_name = str(meta.get("title") or meta.get("formLabel") or meta.get("listLabel") or field_id).strip()
+            normalized_type = str(meta.get("type") or meta.get("userType") or "").strip().lower()
+            is_default = field_id == "ASSIGNED_BY_ID"
+            is_read_only = bool(meta.get("isReadOnly"))
+            is_multiple = bool(meta.get("isMultiple"))
+            if normalized_type not in {"employee", "user"}:
+                continue
+            if is_read_only or is_multiple:
+                continue
+
+            fields.append(
+                {
+                    "id": field_id,
+                    "name": field_name,
+                    "is_default": is_default,
+                    "source": "bitrix:crm.item.fields",
+                }
+            )
+
+        fields.sort(key=lambda item: (not bool(item["is_default"]), str(item["name"]).casefold(), str(item["id"])))
+        return fields
 
 
 def _iso_now() -> str:

@@ -170,6 +170,153 @@ def render_blank_page() -> str:
       min-height: 100%;
     }
 
+    .distribution-reference-view {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-height: 100%;
+    }
+
+    .distribution-reference-head {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .distribution-reference-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.25;
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .distribution-reference-description {
+      margin: 0;
+      max-width: 880px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--canvas-subtle);
+    }
+
+    .reference-status {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border-soft);
+      background: #f8fbff;
+      color: #39507c;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .reference-status.is-error {
+      border-color: rgba(214, 69, 69, 0.2);
+      background: #fff5f5;
+      color: #a83a3a;
+    }
+
+    .reference-status.is-success {
+      border-color: rgba(46, 123, 244, 0.16);
+      background: rgba(46, 123, 244, 0.06);
+      color: #255ec0;
+    }
+
+    .reference-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .reference-card {
+      min-width: 0;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      background: #ffffff;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .reference-card-head {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .reference-card-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.3;
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .reference-card-description {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--canvas-subtle);
+    }
+
+    .reference-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 0;
+      margin: 0;
+      list-style: none;
+    }
+
+    .reference-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f7faff;
+      border: 1px solid rgba(46, 123, 244, 0.08);
+    }
+
+    .reference-item-title {
+      font-size: 15px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #24324f;
+      word-break: break-word;
+    }
+
+    .reference-item-meta {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #7081a8;
+      word-break: break-word;
+    }
+
+    .reference-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .reference-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(46, 123, 244, 0.08);
+      color: var(--brand-blue);
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    .reference-pill.is-muted {
+      background: rgba(92, 109, 150, 0.08);
+      color: #5c6d96;
+    }
+
     .canvas-title {
       margin: 0;
       font-size: 32px;
@@ -254,6 +401,10 @@ def render_blank_page() -> str:
       .canvas-card {
         min-height: 360px;
       }
+
+      .reference-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -328,9 +479,49 @@ def render_blank_page() -> str:
         </div>
 
         <div class="section-panel" id="distributionPanel" hidden>
-          <div class="distribution-empty-state">
-            <h2 class="distribution-empty-title">Создать группу распределения</h2>
-            <button class="primary-action" type="button">Создать</button>
+          <div class="distribution-reference-view">
+            <div class="distribution-reference-head">
+              <h2 class="distribution-reference-title">Справочники Bitrix24 для группы распределения</h2>
+              <p class="distribution-reference-description">
+                На этом этапе раздел только читает данные установленного портала: сотрудников, стадии сделок и поля,
+                которые подходят для установки ответственного. Сохранение группы и логика распределения будут добавлены
+                следующим шагом.
+              </p>
+            </div>
+
+            <div class="reference-status" id="distributionStatus">
+              Откройте раздел, чтобы загрузить справочники портала.
+            </div>
+
+            <div class="reference-grid" id="distributionReferenceGrid" hidden>
+              <section class="reference-card" aria-labelledby="usersCardTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="usersCardTitle">Участники распределения</h3>
+                  <p class="reference-card-description">Сотрудники Bitrix24, доступные для будущего выбора в группе.</p>
+                </div>
+                <ul class="reference-list" id="usersList"></ul>
+              </section>
+
+              <section class="reference-card" aria-labelledby="stagesCardTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="stagesCardTitle">Стадии сделок</h3>
+                  <p class="reference-card-description">
+                    Эти стадии будут использованы для выбора статуса распределения и статусов нагрузки.
+                  </p>
+                </div>
+                <ul class="reference-list" id="stagesList"></ul>
+              </section>
+
+              <section class="reference-card" aria-labelledby="fieldsCardTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="fieldsCardTitle">Поля ответственного</h3>
+                  <p class="reference-card-description">
+                    Поля сделки, в которые приложение сможет записывать выбранного ответственного.
+                  </p>
+                </div>
+                <ul class="reference-list" id="fieldsList"></ul>
+              </section>
+            </div>
           </div>
         </div>
       </section>
@@ -368,6 +559,145 @@ def render_blank_page() -> str:
     const sectionDescription = document.getElementById("sectionDescription");
     const mainCard = document.querySelector(".canvas > .canvas-card");
     const menuButtons = document.querySelectorAll("[data-view]");
+    const distributionStatus = document.getElementById("distributionStatus");
+    const distributionReferenceGrid = document.getElementById("distributionReferenceGrid");
+    const usersList = document.getElementById("usersList");
+    const stagesList = document.getElementById("stagesList");
+    const fieldsList = document.getElementById("fieldsList");
+    const distributionMemberId = new URLSearchParams(window.location.search).get("member_id") || "";
+    const distributionState = {
+      isLoaded: false,
+      isLoading: false,
+    };
+
+    function setDistributionStatus(message, tone) {
+      distributionStatus.textContent = message;
+      distributionStatus.classList.remove("is-error", "is-success");
+      if (tone) {
+        distributionStatus.classList.add(tone);
+      }
+    }
+
+    function renderReferenceList(target, items, renderItem) {
+      target.innerHTML = "";
+
+      if (!Array.isArray(items) || items.length === 0) {
+        const emptyItem = document.createElement("li");
+        emptyItem.className = "reference-item";
+
+        const title = document.createElement("div");
+        title.className = "reference-item-title";
+        title.textContent = "Справочник пока пуст";
+        emptyItem.appendChild(title);
+
+        target.appendChild(emptyItem);
+        return;
+      }
+
+      items.forEach((item) => {
+        target.appendChild(renderItem(item));
+      });
+    }
+
+    function buildReferenceItem(titleText, metaText, pills) {
+      const item = document.createElement("li");
+      item.className = "reference-item";
+
+      const title = document.createElement("div");
+      title.className = "reference-item-title";
+      title.textContent = titleText;
+      item.appendChild(title);
+
+      if (Array.isArray(pills) && pills.length > 0) {
+        const pillRow = document.createElement("div");
+        pillRow.className = "reference-pill-row";
+
+        pills.forEach((pillConfig) => {
+          const pill = document.createElement("span");
+          pill.className = `reference-pill${pillConfig.muted ? " is-muted" : ""}`;
+          pill.textContent = pillConfig.label;
+          pillRow.appendChild(pill);
+        });
+
+        item.appendChild(pillRow);
+      }
+
+      if (metaText) {
+        const meta = document.createElement("div");
+        meta.className = "reference-item-meta";
+        meta.textContent = metaText;
+        item.appendChild(meta);
+      }
+
+      return item;
+    }
+
+    function renderDistributionReferenceData(payload) {
+      renderReferenceList(usersList, payload.users, (user) =>
+        buildReferenceItem(
+          user.name || `Пользователь ${user.id || ""}`.trim(),
+          `ID: ${user.id || "не указан"}`,
+          [{ label: user.is_active ? "Активен" : "Неактивен", muted: !user.is_active }]
+        )
+      );
+
+      renderReferenceList(stagesList, payload.stages, (stage) =>
+        buildReferenceItem(
+          stage.name || stage.id || "Стадия без названия",
+          `ID: ${stage.id || "не указан"} · sort: ${stage.sort ?? "?"}`
+        )
+      );
+
+      renderReferenceList(fieldsList, payload.responsible_fields, (field) =>
+        buildReferenceItem(
+          field.name || field.id || "Поле без названия",
+          `Код поля: ${field.id || "не указан"}`,
+          field.is_default ? [{ label: "Поле по умолчанию" }] : []
+        )
+      );
+
+      distributionReferenceGrid.hidden = false;
+      setDistributionStatus(
+        `Справочники загружены: сотрудников ${payload.users.length}, стадий ${payload.stages.length}, полей ${payload.responsible_fields.length}.`,
+        "is-success"
+      );
+    }
+
+    async function loadDistributionReferenceData() {
+      if (distributionState.isLoaded || distributionState.isLoading) {
+        return;
+      }
+
+      if (!distributionMemberId) {
+        distributionReferenceGrid.hidden = true;
+        setDistributionStatus(
+          "Не найден member_id установленного портала. Откройте приложение через Bitrix24, чтобы загрузить реальные справочники.",
+          "is-error"
+        );
+        return;
+      }
+
+      distributionState.isLoading = true;
+      distributionReferenceGrid.hidden = true;
+      setDistributionStatus("Загружаем сотрудников, стадии сделок и поля ответственного из Bitrix24...");
+
+      try {
+        const response = await fetch(`/api/ui/groups/reference-data?member_id=${encodeURIComponent(distributionMemberId)}`);
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.detail || "Не удалось получить справочники Bitrix24.");
+        }
+
+        renderDistributionReferenceData(payload);
+        distributionState.isLoaded = true;
+      } catch (error) {
+        distributionReferenceGrid.hidden = true;
+        setDistributionStatus(error.message || "Не удалось загрузить справочники Bitrix24.", "is-error");
+      } finally {
+        distributionState.isLoading = false;
+      }
+    }
 
     function setActiveView(view) {
       const content = sectionContent[view] || sectionContent.overview;
@@ -375,12 +705,14 @@ def render_blank_page() -> str:
 
       defaultPanel.hidden = isDistribution;
       distributionPanel.hidden = !isDistribution;
-      mainCard.classList.toggle("is-centered", isDistribution);
+      mainCard.classList.remove("is-centered");
 
       if (!isDistribution) {
         sectionBadge.textContent = content.badge;
         sectionTitle.textContent = content.title;
         sectionDescription.textContent = content.description;
+      } else {
+        loadDistributionReferenceData();
       }
 
       menuButtons.forEach((button) => {
