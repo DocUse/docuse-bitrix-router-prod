@@ -56,6 +56,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         member_id = _require_member_id(request)
         return _load_reference_data(service.get_reference_data, member_id)
 
+    @app.post("/api/ui/groups/portal-context")
+    async def groups_portal_context(request: Request) -> dict[str, object]:
+        payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
+        try:
+            saved = service.install_portal(payload)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"status": "ok", "portal": saved}
+
     @app.get("/api/ui/groups/reference-data/users")
     async def groups_reference_users(request: Request) -> dict[str, object]:
         member_id = _require_member_id(request)

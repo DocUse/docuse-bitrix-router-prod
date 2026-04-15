@@ -58,6 +58,38 @@ class AppUiTests(unittest.TestCase):
         self.assertIn(".reference-grid[hidden]", response.text)
         self.assertIn("BX24.getAuth", response.text)
         self.assertIn("BX24.init", response.text)
+        self.assertIn("/api/ui/groups/portal-context", response.text)
+
+    def test_portal_context_endpoint_saves_portal_from_bitrix_auth_payload(self) -> None:
+        response = self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-1",
+                "REFRESH_ID": "refresh-1",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "status": "ok",
+                "portal": {
+                    "member_id": "portal-789",
+                    "domain": "portal.example.bitrix24.ru",
+                    "saved": True,
+                },
+            },
+            response.json(),
+        )
+
+        stored = self.client.app.state.portal_service.get_portal("portal-789")
+        self.assertEqual("portal.example.bitrix24.ru", stored.domain)
+        self.assertEqual("token-1", stored.access_token)
+        self.assertEqual("refresh-1", stored.refresh_token)
+        self.assertEqual("https://portal.example.bitrix24.ru/rest/", stored.client_endpoint)
 
 
 if __name__ == "__main__":
