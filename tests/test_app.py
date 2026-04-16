@@ -56,6 +56,9 @@ class AppUiTests(unittest.TestCase):
         response = self.client.get("/ui/groups")
 
         self.assertEqual(200, response.status_code)
+        self.assertIn("Распределение сделок", response.text)
+        self.assertIn('id="distributionGroupsPanel"', response.text)
+        self.assertIn('id="createDistributionGroupButton"', response.text)
         self.assertIn('id="distributionForm"', response.text)
         self.assertIn('id="participantsList"', response.text)
         self.assertIn('id="loadStagesList"', response.text)

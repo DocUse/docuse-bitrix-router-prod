@@ -201,6 +201,76 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       color: var(--canvas-subtle);
     }
 
+    .distribution-reference-description[hidden],
+    .reference-status[hidden],
+    .distribution-groups-panel[hidden] {
+      display: none;
+    }
+
+    .distribution-groups-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .distribution-groups-title {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.3;
+      font-weight: 700;
+      text-align: center;
+      color: #333333;
+    }
+
+    .distribution-create-card {
+      width: 340px;
+      min-height: 205px;
+      border: 2px dashed #cdd6ea;
+      border-radius: 10px;
+      background: #fbfbfe;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 24px;
+      cursor: pointer;
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .distribution-create-card:hover {
+      border-color: var(--brand-blue);
+      background: #f8fbff;
+    }
+
+    .distribution-create-card:focus-visible {
+      outline: 2px solid rgba(46, 123, 244, 0.35);
+      outline-offset: 2px;
+    }
+
+    .distribution-create-plus {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 2px dashed #cdd6ea;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand-blue);
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 500;
+      background: #ffffff;
+    }
+
+    .distribution-create-label {
+      font-size: 16px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #333333;
+      text-align: center;
+    }
+
     .reference-status {
       padding: 14px 16px;
       border-radius: 14px;
@@ -775,14 +845,19 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         <div class="section-panel" id="distributionPanel" hidden>
           <div class="distribution-reference-view">
             <div class="distribution-reference-head">
-              <h2 class="distribution-reference-title">Настройка группы распределения</h2>
-              <p class="distribution-reference-description">
-                Здесь сохраняется одна группа распределения на портал без запуска runtime-механики. Справочники Bitrix24
-                используются как источники данных для выбора участников, стадий и поля ответственного.
-              </p>
+              <h2 class="distribution-reference-title">Распределение сделок</h2>
+              <p class="distribution-reference-description" hidden></p>
             </div>
 
-            <div class="reference-status" id="distributionStatus">
+            <div class="distribution-groups-panel" id="distributionGroupsPanel">
+              <h3 class="distribution-groups-title">Группы распределения</h3>
+              <button class="distribution-create-card" id="createDistributionGroupButton" type="button">
+                <span class="distribution-create-plus" aria-hidden="true">+</span>
+                <span class="distribution-create-label">Добавить новую группу</span>
+              </button>
+            </div>
+
+            <div class="reference-status" id="distributionStatus" hidden>
               Откройте раздел, чтобы загрузить конфигурацию группы.
             </div>
 
@@ -928,6 +1003,8 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     const mainCard = document.querySelector(".canvas > .canvas-card");
     const menuButtons = document.querySelectorAll("[data-view]");
     const distributionStatus = document.getElementById("distributionStatus");
+    const distributionGroupsPanel = document.getElementById("distributionGroupsPanel");
+    const createDistributionGroupButton = document.getElementById("createDistributionGroupButton");
     const distributionForm = document.getElementById("distributionForm");
     const groupNameInput = document.getElementById("groupNameInput");
     const distributionTypeSelect = document.getElementById("distributionTypeSelect");
@@ -954,11 +1031,23 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     };
 
     function setDistributionStatus(message, tone) {
+      distributionStatus.hidden = false;
       distributionStatus.textContent = message;
       distributionStatus.classList.remove("is-error", "is-success");
       if (tone) {
         distributionStatus.classList.add(tone);
       }
+    }
+
+    function showDistributionLanding() {
+      distributionGroupsPanel.hidden = false;
+      distributionStatus.hidden = true;
+      distributionForm.hidden = true;
+    }
+
+    function showDistributionForm() {
+      distributionGroupsPanel.hidden = true;
+      distributionStatus.hidden = false;
     }
 
     async function fetchJson(url, options) {
@@ -1139,6 +1228,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       );
       renderParticipants(config, referenceData.users);
       renderLoadStages(config, referenceData.stages);
+      showDistributionForm();
       distributionForm.hidden = false;
     }
 
@@ -1307,12 +1397,15 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
 
     async function loadDistributionReferenceData() {
       if (distributionState.isLoaded || distributionState.isLoading) {
+        if (distributionState.isLoaded) {
+          renderDistributionConfigForm();
+        }
         return;
       }
 
       const distributionMemberId = await resolveDistributionMemberId();
       if (!distributionMemberId) {
-        distributionForm.hidden = true;
+        showDistributionLanding();
         setDistributionStatus(
           "Не удалось определить member_id портала. Откройте приложение внутри Bitrix24 или завершите повторную установку, чтобы загрузить реальные справочники.",
           "is-error"
@@ -1321,6 +1414,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       }
 
       distributionState.isLoading = true;
+      showDistributionForm();
       distributionForm.hidden = true;
       setDistributionStatus("Загружаем данные портала и конфигурацию группы...");
 
@@ -1341,7 +1435,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
           setDistributionStatus("Справочники Bitrix24 загружены. Заполните форму и нажмите «Применить».", "is-success");
         }
       } catch (error) {
-        distributionForm.hidden = true;
+        showDistributionLanding();
         setDistributionStatus(error.message || "Не удалось загрузить форму распределения.", "is-error");
       } finally {
         distributionState.isLoading = false;
@@ -1361,7 +1455,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         sectionTitle.textContent = content.title;
         sectionDescription.textContent = content.description;
       } else {
-        loadDistributionReferenceData();
+        showDistributionLanding();
       }
 
       menuButtons.forEach((button) => {
@@ -1370,6 +1464,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     }
 
     applyBulkLimitButton.addEventListener("click", applyBulkLimitFromForm);
+    createDistributionGroupButton.addEventListener("click", loadDistributionReferenceData);
     saveDistributionButton.addEventListener("click", saveDistributionConfig);
 
     menuButtons.forEach((button) => {
