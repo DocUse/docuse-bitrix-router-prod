@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from urllib.parse import parse_qs
 from urllib.parse import urlsplit
@@ -13,6 +14,8 @@ from .database import Database
 from .service import PortalService
 from .settings import Settings
 from .ui import render_blank_page, render_install_page
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -48,6 +51,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if _payload_contains_installable_auth(payload):
             try:
                 service.install_portal(payload)
+                _ensure_binding_for_configured_portal(
+                    request,
+                    service=service,
+                    settings=effective_settings,
+                    portal_member_id=member_id,
+                    source="groups_ui_post",
+                )
             except Exception as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         return render_blank_page(initial_member_id=member_id)
@@ -69,13 +79,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not isinstance(payload, dict):
             raise HTTPException(status_code=400, detail="JSON payload must be an object")
         saved = _load_reference_data(lambda portal_member_id: service.save_distribution_group(portal_member_id, payload), member_id)
-        binding: dict[str, object] | None = None
-        event_handler_url = _get_public_event_handler_url(request, route_name="bitrix_event_handler")
-        if event_handler_url:
-            binding = _load_reference_data(
-                lambda portal_member_id: service.ensure_deal_created_event_binding(portal_member_id, event_handler_url),
-                member_id,
-            )
+        binding = _ensure_binding_for_configured_portal(
+            request,
+            service=service,
+            settings=effective_settings,
+            portal_member_id=member_id,
+            source="groups_config_post",
+        )
         return {"status": "ok", "config": saved, "event_binding": binding}
 
     @app.post("/api/ui/groups/portal-context")
@@ -83,9 +93,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
         try:
             saved = service.install_portal(payload)
+            binding = _ensure_binding_for_configured_portal(
+                request,
+                service=service,
+                settings=effective_settings,
+                portal_member_id=str(saved["member_id"]),
+                source="groups_portal_context",
+            )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"status": "ok", "portal": saved}
+        return {"status": "ok", "portal": saved, "event_binding": binding}
 
     @app.get("/api/ui/groups/reference-data/users")
     async def groups_reference_users(request: Request) -> dict[str, object]:
@@ -105,13 +122,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/bitrix/events", name="bitrix_event_handler")
     async def bitrix_event_handler(request: Request) -> dict[str, object]:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
+        logger.info(
+            "Received /api/bitrix/events hit content_type=%s keys=%s",
+            request.headers.get("content-type"),
+            sorted(payload.keys()),
+        )
         try:
             result = service.handle_bitrix_event(payload)
         except ValueError as exc:
+            logger.exception("Bitrix event handler rejected payload")
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except BitrixApiError as exc:
+            logger.exception("Bitrix event handler failed during Bitrix API call")
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return {"status": "ok", "result": result}
+
+    @app.get("/api/bitrix/events", name="bitrix_event_handler_probe")
+    async def bitrix_event_handler_probe() -> dict[str, str]:
+        return {"status": "ready"}
+
+    @app.head("/api/bitrix/events")
+    async def bitrix_event_handler_probe_head() -> dict[str, str]:
+        return {}
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -133,6 +165,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if _payload_contains_installable_auth(payload):
             try:
                 service.install_portal(payload)
+                _ensure_binding_for_configured_portal(
+                    request,
+                    service=service,
+                    settings=effective_settings,
+                    portal_member_id=member_id,
+                    source="install_page_post",
+                )
             except Exception as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
         return render_install_page(initial_member_id=member_id)
@@ -150,9 +189,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
         try:
             saved = service.install_portal(payload)
+            binding = _ensure_binding_for_configured_portal(
+                request,
+                service=service,
+                settings=effective_settings,
+                portal_member_id=str(saved["member_id"]),
+                source="install_callback",
+            )
         except Exception as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"status": "ok", "portal": saved}
+        return {"status": "ok", "portal": saved, "event_binding": binding}
 
     return app
 
@@ -242,7 +288,54 @@ def _load_reference_data(loader: Callable[[str], object], member_id: str) -> obj
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-def _get_public_event_handler_url(request: Request, *, route_name: str) -> str | None:
+def _ensure_binding_for_configured_portal(
+    request: Request,
+    *,
+    service: PortalService,
+    settings: Settings,
+    portal_member_id: str | None,
+    source: str,
+) -> dict[str, object] | None:
+    member_id = (portal_member_id or "").strip()
+    if not member_id:
+        return None
+
+    event_handler_url = _get_public_event_handler_url(request, settings=settings, route_name="bitrix_event_handler")
+    if not event_handler_url:
+        logger.warning("Skipping event binding source=%s portal=%s: public handler URL unavailable", source, member_id)
+        return None
+
+    try:
+        binding = service.ensure_configured_deal_created_event_binding(member_id, event_handler_url)
+    except Exception:
+        logger.exception(
+            "Failed to ensure configured ONCRMDEALADD binding source=%s portal=%s handler=%s",
+            source,
+            member_id,
+            event_handler_url,
+        )
+        raise
+
+    logger.info(
+        "Ensured configured ONCRMDEALADD binding source=%s portal=%s handler=%s result=%s",
+        source,
+        member_id,
+        event_handler_url,
+        binding,
+    )
+    return binding
+
+
+def _get_public_event_handler_url(request: Request, *, settings: Settings, route_name: str) -> str | None:
+    configured_base_url = (settings.public_base_url or "").strip()
+    if configured_base_url:
+        normalized_base_url = configured_base_url.rstrip("/")
+        parsed = urlsplit(normalized_base_url)
+        if parsed.scheme.lower() != "https" or not parsed.netloc:
+            logger.warning("APP_PUBLIC_BASE_URL is not usable for Bitrix event binding: %s", configured_base_url)
+            return None
+        return f"{normalized_base_url}{request.app.url_path_for(route_name)}"
+
     scheme = (request.headers.get("x-forwarded-proto") or request.url.scheme or "").strip().lower()
     host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc or "").strip()
     if scheme != "https" or not host:

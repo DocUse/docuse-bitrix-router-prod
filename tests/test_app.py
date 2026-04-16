@@ -115,6 +115,7 @@ class AppUiTests(unittest.TestCase):
                     "domain": "portal.example.bitrix24.ru",
                     "saved": True,
                 },
+                "event_binding": None,
             },
             response.json(),
         )
@@ -217,8 +218,130 @@ class AppUiTests(unittest.TestCase):
                 "handler": "https://router.example.com/api/bitrix/events",
                 "already_bound": False,
                 "bound": True,
+                "configured": True,
             },
             response.json()["event_binding"],
+        )
+
+    def test_distribution_group_config_endpoint_uses_public_base_url_for_binding(self) -> None:
+        self.settings.public_base_url = "https://router.example.com/base/"
+        fake_client = FakeBitrixClient(
+            {
+                "event.get": {"result": []},
+                "event.bind": {"result": True},
+            }
+        )
+        self.client.app.state.portal_service.bitrix_client_factory = lambda portal: fake_client
+        self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-1",
+                "REFRESH_ID": "refresh-1",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+
+        response = self.client.post(
+            "/api/ui/groups/config?member_id=portal-789",
+            json={
+                "name": "Основная группа",
+                "distribution_type": "round_robin_load_time",
+                "event_type": "deal_created",
+                "distribution_stage_id": "NEW",
+                "load_stage_ids": ["NEW"],
+                "responsible_field_id": "ASSIGNED_BY_ID",
+                "wait_seconds": 120,
+                "retry_interval_seconds": 30,
+                "is_active": True,
+                "members": [{"user_id": "10", "limit": 3}],
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "event": "ONCRMDEALADD",
+                "handler": "https://router.example.com/base/api/bitrix/events",
+                "already_bound": False,
+                "bound": True,
+                "configured": True,
+            },
+            response.json()["event_binding"],
+        )
+
+    def test_portal_context_endpoint_rebinds_existing_configured_group(self) -> None:
+        self.settings.public_base_url = "https://router.example.com"
+        fake_client = FakeBitrixClient(
+            {
+                "event.get": {"result": []},
+                "event.bind": {"result": True},
+            }
+        )
+        self.client.app.state.portal_service.bitrix_client_factory = lambda portal: fake_client
+        self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-1",
+                "REFRESH_ID": "refresh-1",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+        self.client.app.state.portal_service.save_distribution_group(
+            "portal-789",
+            {
+                "name": "Основная группа",
+                "distribution_type": "round_robin_load_time",
+                "event_type": "deal_created",
+                "distribution_stage_id": "NEW",
+                "load_stage_ids": ["NEW"],
+                "responsible_field_id": "ASSIGNED_BY_ID",
+                "wait_seconds": 120,
+                "retry_interval_seconds": 30,
+                "is_active": True,
+                "members": [{"user_id": "10", "limit": 3}],
+            },
+        )
+        fake_client.calls.clear()
+
+        response = self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-2",
+                "REFRESH_ID": "refresh-2",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual(
+            {
+                "event": "ONCRMDEALADD",
+                "handler": "https://router.example.com/api/bitrix/events",
+                "already_bound": False,
+                "bound": True,
+                "configured": True,
+            },
+            response.json()["event_binding"],
+        )
+        self.assertEqual(
+            [
+                ("call", "event.get", None),
+                (
+                    "call",
+                    "event.bind",
+                    {
+                        "event": "ONCRMDEALADD",
+                        "handler": "https://router.example.com/api/bitrix/events",
+                    },
+                ),
+            ],
+            fake_client.calls,
         )
 
     def test_bitrix_event_endpoint_assigns_deal(self) -> None:
@@ -269,6 +392,12 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertEqual("assigned", response.json()["result"]["status"])
         self.assertEqual("10", response.json()["result"]["assigned_user_id"])
+
+    def test_bitrix_event_probe_is_available_via_get(self) -> None:
+        response = self.client.get("/api/bitrix/events")
+
+        self.assertEqual(200, response.status_code)
+        self.assertEqual({"status": "ready"}, response.json())
 
     def test_config_endpoint_works_with_legacy_distribution_groups_table_present(self) -> None:
         temp_dir = tempfile.TemporaryDirectory()

@@ -23,6 +23,7 @@ class Settings:
     app_host: str
     app_port: int
     db_path: Path
+    public_base_url: str | None = None
 
     @classmethod
     def load(cls, base_dir: Path | None = None) -> "Settings":
@@ -37,6 +38,7 @@ class Settings:
             app_host=os.getenv("APP_HOST", "127.0.0.1"),
             app_port=int(app_port_raw or port_raw or 8000),
             db_path=(root / db_path).resolve() if not db_path.is_absolute() else db_path,
+            public_base_url=(os.getenv("APP_PUBLIC_BASE_URL") or "").strip() or None,
         )
 
     def ensure_runtime_dirs(self) -> None:
