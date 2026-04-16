@@ -323,6 +323,219 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       color: #5c6d96;
     }
 
+    .distribution-form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .distribution-form[hidden] {
+      display: none;
+    }
+
+    .distribution-form-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .distribution-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      background: #ffffff;
+    }
+
+    .distribution-section--wide {
+      grid-column: 1 / -1;
+    }
+
+    .distribution-section-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.3;
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .distribution-section-description {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--canvas-subtle);
+    }
+
+    .distribution-fields-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .distribution-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .distribution-field--full {
+      grid-column: 1 / -1;
+    }
+
+    .distribution-label {
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #24324f;
+    }
+
+    .distribution-hint {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #7081a8;
+    }
+
+    .distribution-input,
+    .distribution-select {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      background: #ffffff;
+      color: #24324f;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .distribution-input:disabled,
+    .distribution-select:disabled {
+      background: #f6f8fc;
+      color: #94a0bb;
+    }
+
+    .distribution-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #24324f;
+    }
+
+    .distribution-toggle input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .bulk-limit-row {
+      display: grid;
+      grid-template-columns: minmax(0, 180px) minmax(0, 120px) auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .secondary-action {
+      min-width: 120px;
+      height: 42px;
+      border: 1px solid rgba(46, 123, 244, 0.18);
+      border-radius: 10px;
+      background: #f8fbff;
+      color: var(--brand-blue);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .participant-list,
+    .checkbox-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .participant-row,
+    .checkbox-row {
+      display: grid;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid rgba(46, 123, 244, 0.08);
+      border-radius: 14px;
+      background: #f7faff;
+    }
+
+    .participant-row {
+      grid-template-columns: minmax(0, 1fr) 140px;
+    }
+
+    .participant-main,
+    .checkbox-main {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      min-width: 0;
+    }
+
+    .participant-main input,
+    .checkbox-main input {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      flex: 0 0 16px;
+    }
+
+    .participant-info,
+    .checkbox-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .participant-name,
+    .checkbox-name {
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #24324f;
+      word-break: break-word;
+    }
+
+    .participant-meta,
+    .checkbox-meta {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #7081a8;
+      word-break: break-word;
+    }
+
+    .participant-limit {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .participant-limit-label {
+      font-size: 12px;
+      line-height: 1.3;
+      color: #7081a8;
+      font-weight: 600;
+    }
+
+    .distribution-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
     .canvas-title {
       margin: 0;
       font-size: 32px;
@@ -411,6 +624,13 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       .reference-grid {
         grid-template-columns: 1fr;
       }
+
+      .distribution-form-grid,
+      .distribution-fields-grid,
+      .bulk-limit-row,
+      .participant-row {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -487,47 +707,106 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         <div class="section-panel" id="distributionPanel" hidden>
           <div class="distribution-reference-view">
             <div class="distribution-reference-head">
-              <h2 class="distribution-reference-title">Справочники Bitrix24 для группы распределения</h2>
+              <h2 class="distribution-reference-title">Настройка группы распределения</h2>
               <p class="distribution-reference-description">
-                На этом этапе раздел только читает данные установленного портала: сотрудников, стадии сделок и поля,
-                которые подходят для установки ответственного. Сохранение группы и логика распределения будут добавлены
-                следующим шагом.
+                Здесь сохраняется одна группа распределения на портал без запуска runtime-механики. Справочники Bitrix24
+                используются как источники данных для выбора участников, стадий и поля ответственного.
               </p>
             </div>
 
             <div class="reference-status" id="distributionStatus">
-              Откройте раздел, чтобы загрузить справочники портала.
+              Откройте раздел, чтобы загрузить конфигурацию группы.
             </div>
 
-            <div class="reference-grid" id="distributionReferenceGrid" hidden>
-              <section class="reference-card" aria-labelledby="usersCardTitle">
-                <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="usersCardTitle">Участники распределения</h3>
-                  <p class="reference-card-description">Сотрудники Bitrix24, доступные для будущего выбора в группе.</p>
+            <form class="distribution-form" id="distributionForm" hidden>
+              <section class="distribution-section distribution-section--wide" aria-labelledby="generalConfigTitle">
+                <h3 class="distribution-section-title" id="generalConfigTitle">Основные настройки</h3>
+                <div class="distribution-fields-grid">
+                  <label class="distribution-field distribution-field--full">
+                    <span class="distribution-label">Наименование группы распределения</span>
+                    <input class="distribution-input" id="groupNameInput" type="text" placeholder="Например, Основная группа распределения">
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Тип распределения</span>
+                    <select class="distribution-select" id="distributionTypeSelect">
+                      <option value="round_robin_load_time">По очереди с лимитами по нагрузке и времени</option>
+                    </select>
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Отслеживаемое событие</span>
+                    <select class="distribution-select" id="eventTypeSelect">
+                      <option value="deal_created">Создание новой сделки</option>
+                    </select>
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Статус для распределения</span>
+                    <select class="distribution-select" id="distributionStageSelect"></select>
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Поле для установки ответственного</span>
+                    <select class="distribution-select" id="responsibleFieldSelect"></select>
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Время ожидания в секундах</span>
+                    <input class="distribution-input" id="waitSecondsInput" type="number" min="1" step="1" placeholder="Например, 120">
+                  </label>
+
+                  <label class="distribution-field">
+                    <span class="distribution-label">Интервал перепроверки при переполнении лимитов</span>
+                    <input class="distribution-input" id="retryIntervalInput" type="number" min="1" step="1" placeholder="Например, 30">
+                  </label>
+
+                  <label class="distribution-field distribution-field--full">
+                    <span class="distribution-toggle">
+                      <input id="groupActiveInput" type="checkbox">
+                      <span>Группа активна</span>
+                    </span>
+                  </label>
                 </div>
-                <ul class="reference-list" id="usersList"></ul>
               </section>
 
-              <section class="reference-card" aria-labelledby="stagesCardTitle">
-                <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="stagesCardTitle">Стадии сделок</h3>
-                  <p class="reference-card-description">
-                    Эти стадии будут использованы для выбора статуса распределения и статусов нагрузки.
+              <div class="distribution-form-grid">
+                <section class="distribution-section" aria-labelledby="membersConfigTitle">
+                  <h3 class="distribution-section-title" id="membersConfigTitle">Участники распределения</h3>
+                  <p class="distribution-section-description">
+                    Выберите сотрудников, которые участвуют в распределении, и задайте для каждого индивидуальный лимит.
                   </p>
-                </div>
-                <ul class="reference-list" id="stagesList"></ul>
-              </section>
+                  <div class="bulk-limit-row">
+                    <label class="distribution-field">
+                      <span class="distribution-label">Массовое заполнение лимита</span>
+                      <select class="distribution-select" id="bulkLimitScopeSelect">
+                        <option value="selected">Выбранных</option>
+                        <option value="all">Всех</option>
+                      </select>
+                    </label>
+                    <label class="distribution-field">
+                      <span class="distribution-label">Лимит</span>
+                      <input class="distribution-input" id="bulkLimitValueInput" type="number" min="0" step="1" placeholder="0">
+                    </label>
+                    <button class="secondary-action" id="applyBulkLimitButton" type="button">Применить</button>
+                  </div>
+                  <div class="participant-list" id="participantsList"></div>
+                </section>
 
-              <section class="reference-card" aria-labelledby="fieldsCardTitle">
-                <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="fieldsCardTitle">Поля ответственного</h3>
-                  <p class="reference-card-description">
-                    Поля сделки, в которые приложение сможет записывать выбранного ответственного.
+                <section class="distribution-section" aria-labelledby="loadStagesTitle">
+                  <h3 class="distribution-section-title" id="loadStagesTitle">Статусы для определения нагрузки</h3>
+                  <p class="distribution-section-description">
+                    Вы выбрали режим распределения по нагрузке на менеджера, поэтому в данном поле следует указать, в каких
+                    стадиях активные сделки являются нагрузкой для выбранных менеджеров.
                   </p>
-                </div>
-                <ul class="reference-list" id="fieldsList"></ul>
-              </section>
-            </div>
+                  <div class="checkbox-list" id="loadStagesList"></div>
+                </section>
+              </div>
+
+              <div class="distribution-actions">
+                <button class="primary-action" id="saveDistributionButton" type="button">Применить</button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
@@ -566,16 +845,29 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     const mainCard = document.querySelector(".canvas > .canvas-card");
     const menuButtons = document.querySelectorAll("[data-view]");
     const distributionStatus = document.getElementById("distributionStatus");
-    const distributionReferenceGrid = document.getElementById("distributionReferenceGrid");
-    const usersList = document.getElementById("usersList");
-    const stagesList = document.getElementById("stagesList");
-    const fieldsList = document.getElementById("fieldsList");
+    const distributionForm = document.getElementById("distributionForm");
+    const groupNameInput = document.getElementById("groupNameInput");
+    const distributionTypeSelect = document.getElementById("distributionTypeSelect");
+    const eventTypeSelect = document.getElementById("eventTypeSelect");
+    const distributionStageSelect = document.getElementById("distributionStageSelect");
+    const responsibleFieldSelect = document.getElementById("responsibleFieldSelect");
+    const waitSecondsInput = document.getElementById("waitSecondsInput");
+    const retryIntervalInput = document.getElementById("retryIntervalInput");
+    const groupActiveInput = document.getElementById("groupActiveInput");
+    const bulkLimitScopeSelect = document.getElementById("bulkLimitScopeSelect");
+    const bulkLimitValueInput = document.getElementById("bulkLimitValueInput");
+    const applyBulkLimitButton = document.getElementById("applyBulkLimitButton");
+    const participantsList = document.getElementById("participantsList");
+    const loadStagesList = document.getElementById("loadStagesList");
+    const saveDistributionButton = document.getElementById("saveDistributionButton");
     const initialDistributionMemberId = __INITIAL_MEMBER_ID__;
     const distributionState = {
       isLoaded: false,
       isLoading: false,
       memberId: initialDistributionMemberId || new URLSearchParams(window.location.search).get("member_id") || "",
       auth: null,
+      referenceData: null,
+      config: null,
     };
 
     function setDistributionStatus(message, tone) {
@@ -586,89 +878,185 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       }
     }
 
-    function renderReferenceList(target, items, renderItem) {
-      target.innerHTML = "";
+    async function fetchJson(url, options) {
+      const response = await fetch(url, options);
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.detail || "Backend returned an unexpected response.");
+      }
+      return payload;
+    }
 
-      if (!Array.isArray(items) || items.length === 0) {
-        const emptyItem = document.createElement("li");
-        emptyItem.className = "reference-item";
+    function createDefaultDistributionConfig(referenceData) {
+      const defaultResponsibleField = (referenceData.responsible_fields || []).find((field) => field.is_default)
+        || (referenceData.responsible_fields || [])[0]
+        || null;
+      return {
+        name: "",
+        distribution_type: "round_robin_load_time",
+        event_type: "deal_created",
+        distribution_stage_id: "",
+        responsible_field_id: defaultResponsibleField ? defaultResponsibleField.id : "",
+        wait_seconds: "",
+        retry_interval_seconds: "",
+        is_active: true,
+        members: [],
+        load_stage_ids: [],
+      };
+    }
 
-        const title = document.createElement("div");
-        title.className = "reference-item-title";
-        title.textContent = "Справочник пока пуст";
-        emptyItem.appendChild(title);
-
-        target.appendChild(emptyItem);
-        return;
+    function normalizeLoadedDistributionConfig(config, referenceData) {
+      const defaults = createDefaultDistributionConfig(referenceData);
+      if (!config) {
+        return defaults;
       }
 
-      items.forEach((item) => {
-        target.appendChild(renderItem(item));
+      const members = Array.isArray(config.members) ? config.members : [];
+      const loadStageIds = Array.isArray(config.load_stage_ids) ? config.load_stage_ids : [];
+
+      return {
+        ...defaults,
+        ...config,
+        members,
+        load_stage_ids: loadStageIds,
+      };
+    }
+
+    function renderSelectOptions(selectElement, items, selectedValue, placeholder) {
+      selectElement.innerHTML = "";
+
+      if (placeholder) {
+        const placeholderOption = document.createElement("option");
+        placeholderOption.value = "";
+        placeholderOption.textContent = placeholder;
+        selectElement.appendChild(placeholderOption);
+      }
+
+      (items || []).forEach((item) => {
+        const option = document.createElement("option");
+        option.value = item.id;
+        option.textContent = item.name || item.id;
+        option.selected = item.id === selectedValue;
+        selectElement.appendChild(option);
       });
     }
 
-    function buildReferenceItem(titleText, metaText, pills) {
-      const item = document.createElement("li");
-      item.className = "reference-item";
+    function renderParticipants(config, users) {
+      participantsList.innerHTML = "";
+      const selectedMembers = new Map((config.members || []).map((member) => [member.user_id, member]));
 
-      const title = document.createElement("div");
-      title.className = "reference-item-title";
-      title.textContent = titleText;
-      item.appendChild(title);
+      (users || []).forEach((user) => {
+        const selectedMember = selectedMembers.get(user.id);
+        const row = document.createElement("div");
+        row.className = "participant-row";
 
-      if (Array.isArray(pills) && pills.length > 0) {
-        const pillRow = document.createElement("div");
-        pillRow.className = "reference-pill-row";
+        const label = document.createElement("label");
+        label.className = "participant-main";
 
-        pills.forEach((pillConfig) => {
-          const pill = document.createElement("span");
-          pill.className = `reference-pill${pillConfig.muted ? " is-muted" : ""}`;
-          pill.textContent = pillConfig.label;
-          pillRow.appendChild(pill);
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(selectedMember);
+        checkbox.dataset.userId = user.id;
+
+        const info = document.createElement("span");
+        info.className = "participant-info";
+
+        const name = document.createElement("span");
+        name.className = "participant-name";
+        name.textContent = user.name || `Пользователь ${user.id}`;
+
+        const meta = document.createElement("span");
+        meta.className = "participant-meta";
+        meta.textContent = `ID: ${user.id}${user.is_active ? " · активен" : " · неактивен"}`;
+
+        info.append(name, meta);
+        label.append(checkbox, info);
+
+        const limitWrapper = document.createElement("label");
+        limitWrapper.className = "participant-limit";
+
+        const limitLabel = document.createElement("span");
+        limitLabel.className = "participant-limit-label";
+        limitLabel.textContent = "Лимит";
+
+        const limitInput = document.createElement("input");
+        limitInput.className = "distribution-input";
+        limitInput.type = "number";
+        limitInput.min = "0";
+        limitInput.step = "1";
+        limitInput.placeholder = "0";
+        limitInput.value = selectedMember ? String(selectedMember.limit) : "";
+        limitInput.dataset.limitFor = user.id;
+        limitInput.disabled = !checkbox.checked;
+
+        checkbox.addEventListener("change", () => {
+          limitInput.disabled = !checkbox.checked;
+          if (!checkbox.checked) {
+            limitInput.value = "";
+          }
         });
 
-        item.appendChild(pillRow);
-      }
-
-      if (metaText) {
-        const meta = document.createElement("div");
-        meta.className = "reference-item-meta";
-        meta.textContent = metaText;
-        item.appendChild(meta);
-      }
-
-      return item;
+        limitWrapper.append(limitLabel, limitInput);
+        row.append(label, limitWrapper);
+        participantsList.appendChild(row);
+      });
     }
 
-    function renderDistributionReferenceData(payload) {
-      renderReferenceList(usersList, payload.users, (user) =>
-        buildReferenceItem(
-          user.name || `Пользователь ${user.id || ""}`.trim(),
-          `ID: ${user.id || "не указан"}`,
-          [{ label: user.is_active ? "Активен" : "Неактивен", muted: !user.is_active }]
-        )
-      );
+    function renderLoadStages(config, stages) {
+      loadStagesList.innerHTML = "";
+      const selectedStageIds = new Set(config.load_stage_ids || []);
 
-      renderReferenceList(stagesList, payload.stages, (stage) =>
-        buildReferenceItem(
-          stage.name || stage.id || "Стадия без названия",
-          `ID: ${stage.id || "не указан"} · sort: ${stage.sort ?? "?"}`
-        )
-      );
+      (stages || []).forEach((stage) => {
+        const row = document.createElement("label");
+        row.className = "checkbox-row";
 
-      renderReferenceList(fieldsList, payload.responsible_fields, (field) =>
-        buildReferenceItem(
-          field.name || field.id || "Поле без названия",
-          `Код поля: ${field.id || "не указан"}`,
-          field.is_default ? [{ label: "Поле по умолчанию" }] : []
-        )
-      );
+        const main = document.createElement("span");
+        main.className = "checkbox-main";
 
-      distributionReferenceGrid.hidden = false;
-      setDistributionStatus(
-        `Справочники загружены: сотрудников ${payload.users.length}, стадий ${payload.stages.length}, полей ${payload.responsible_fields.length}.`,
-        "is-success"
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selectedStageIds.has(stage.id);
+        checkbox.dataset.stageId = stage.id;
+
+        const info = document.createElement("span");
+        info.className = "checkbox-info";
+
+        const name = document.createElement("span");
+        name.className = "checkbox-name";
+        name.textContent = stage.name || stage.id;
+
+        const meta = document.createElement("span");
+        meta.className = "checkbox-meta";
+        meta.textContent = `ID: ${stage.id}${stage.sort !== undefined ? ` · sort: ${stage.sort}` : ""}`;
+
+        info.append(name, meta);
+        main.append(checkbox, info);
+        row.appendChild(main);
+        loadStagesList.appendChild(row);
+      });
+    }
+
+    function renderDistributionConfigForm() {
+      const referenceData = distributionState.referenceData || { users: [], stages: [], responsible_fields: [] };
+      const config = distributionState.config || createDefaultDistributionConfig(referenceData);
+
+      groupNameInput.value = config.name || "";
+      distributionTypeSelect.value = config.distribution_type || "round_robin_load_time";
+      eventTypeSelect.value = config.event_type || "deal_created";
+      waitSecondsInput.value = config.wait_seconds === "" ? "" : String(config.wait_seconds ?? "");
+      retryIntervalInput.value = config.retry_interval_seconds === "" ? "" : String(config.retry_interval_seconds ?? "");
+      groupActiveInput.checked = Boolean(config.is_active);
+
+      renderSelectOptions(distributionStageSelect, referenceData.stages, config.distribution_stage_id, "Выберите статус");
+      renderSelectOptions(
+        responsibleFieldSelect,
+        referenceData.responsible_fields,
+        config.responsible_field_id,
+        "Выберите поле",
       );
+      renderParticipants(config, referenceData.users);
+      renderLoadStages(config, referenceData.stages);
+      distributionForm.hidden = false;
     }
 
     function getBitrixAuth() {
@@ -742,6 +1130,98 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       }
     }
 
+    function collectDistributionConfigFromForm() {
+      const members = [];
+      participantsList.querySelectorAll("[data-user-id]").forEach((checkbox) => {
+        if (!checkbox.checked) {
+          return;
+        }
+
+        const limitInput = participantsList.querySelector(`[data-limit-for="${checkbox.dataset.userId}"]`);
+        members.push({
+          user_id: checkbox.dataset.userId,
+          limit: limitInput ? Number(limitInput.value || 0) : 0,
+        });
+      });
+
+      const loadStageIds = [];
+      loadStagesList.querySelectorAll("[data-stage-id]").forEach((checkbox) => {
+        if (checkbox.checked) {
+          loadStageIds.push(checkbox.dataset.stageId);
+        }
+      });
+
+      return {
+        name: groupNameInput.value.trim(),
+        distribution_type: distributionTypeSelect.value,
+        event_type: eventTypeSelect.value,
+        distribution_stage_id: distributionStageSelect.value,
+        responsible_field_id: responsibleFieldSelect.value,
+        wait_seconds: Number(waitSecondsInput.value || 0),
+        retry_interval_seconds: Number(retryIntervalInput.value || 0),
+        is_active: groupActiveInput.checked,
+        members,
+        load_stage_ids: loadStageIds,
+      };
+    }
+
+    function applyBulkLimitFromForm() {
+      const bulkValue = bulkLimitValueInput.value.trim();
+      if (!bulkValue) {
+        setDistributionStatus("Укажите значение лимита для массового заполнения.", "is-error");
+        return;
+      }
+
+      const shouldApplyToAll = bulkLimitScopeSelect.value === "all";
+      participantsList.querySelectorAll("[data-user-id]").forEach((checkbox) => {
+        if (!shouldApplyToAll && !checkbox.checked) {
+          return;
+        }
+
+        const limitInput = participantsList.querySelector(`[data-limit-for="${checkbox.dataset.userId}"]`);
+        if (!limitInput) {
+          return;
+        }
+        if (!checkbox.checked && shouldApplyToAll) {
+          checkbox.checked = true;
+          limitInput.disabled = false;
+        }
+        limitInput.value = bulkValue;
+      });
+
+      setDistributionStatus("Лимиты обновлены в форме. Чтобы сохранить группу, нажмите «Применить».", "is-success");
+    }
+
+    async function saveDistributionConfig() {
+      const distributionMemberId = await resolveDistributionMemberId();
+      if (!distributionMemberId) {
+        setDistributionStatus("Не удалось определить member_id портала для сохранения.", "is-error");
+        return;
+      }
+
+      setDistributionStatus("Сохраняем конфигурацию группы распределения...");
+
+      try {
+        const payload = collectDistributionConfigFromForm();
+        const response = await fetchJson(
+          `/api/ui/groups/config?member_id=${encodeURIComponent(distributionMemberId)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        distributionState.config = normalizeLoadedDistributionConfig(response.config, distributionState.referenceData);
+        renderDistributionConfigForm();
+        setDistributionStatus("Группа распределения сохранена. После перезагрузки конфигурация будет поднята из базы.", "is-success");
+      } catch (error) {
+        setDistributionStatus(error.message || "Не удалось сохранить конфигурацию группы.", "is-error");
+      }
+    }
+
     async function loadDistributionReferenceData() {
       if (distributionState.isLoaded || distributionState.isLoading) {
         return;
@@ -749,7 +1229,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
 
       const distributionMemberId = await resolveDistributionMemberId();
       if (!distributionMemberId) {
-        distributionReferenceGrid.hidden = true;
+        distributionForm.hidden = true;
         setDistributionStatus(
           "Не удалось определить member_id портала. Откройте приложение внутри Bitrix24 или завершите повторную установку, чтобы загрузить реальные справочники.",
           "is-error"
@@ -758,23 +1238,28 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       }
 
       distributionState.isLoading = true;
-      distributionReferenceGrid.hidden = true;
-      setDistributionStatus("Загружаем сотрудников, стадии сделок и поля ответственного из Bitrix24...");
+      distributionForm.hidden = true;
+      setDistributionStatus("Загружаем данные портала и конфигурацию группы...");
 
       try {
         await syncPortalContextFromBitrix();
-        const response = await fetch(`/api/ui/groups/reference-data?member_id=${encodeURIComponent(distributionMemberId)}`);
-        const payload = await response.json();
+        const [referencePayload, configPayload] = await Promise.all([
+          fetchJson(`/api/ui/groups/reference-data?member_id=${encodeURIComponent(distributionMemberId)}`),
+          fetchJson(`/api/ui/groups/config?member_id=${encodeURIComponent(distributionMemberId)}`),
+        ]);
 
-        if (!response.ok) {
-          throw new Error(payload.detail || "Не удалось получить справочники Bitrix24.");
-        }
-
-        renderDistributionReferenceData(payload);
+        distributionState.referenceData = referencePayload;
+        distributionState.config = normalizeLoadedDistributionConfig(configPayload.config, referencePayload);
+        renderDistributionConfigForm();
         distributionState.isLoaded = true;
+        if (configPayload.config) {
+          setDistributionStatus("Сохраненная конфигурация группы загружена. Изменения применяются кнопкой «Применить».", "is-success");
+        } else {
+          setDistributionStatus("Справочники Bitrix24 загружены. Заполните форму и нажмите «Применить».", "is-success");
+        }
       } catch (error) {
-        distributionReferenceGrid.hidden = true;
-        setDistributionStatus(error.message || "Не удалось загрузить справочники Bitrix24.", "is-error");
+        distributionForm.hidden = true;
+        setDistributionStatus(error.message || "Не удалось загрузить форму распределения.", "is-error");
       } finally {
         distributionState.isLoading = false;
       }
@@ -800,6 +1285,9 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         button.classList.toggle("is-active", button.dataset.view === view);
       });
     }
+
+    applyBulkLimitButton.addEventListener("click", applyBulkLimitFromForm);
+    saveDistributionButton.addEventListener("click", saveDistributionConfig);
 
     menuButtons.forEach((button) => {
       button.addEventListener("click", () => setActiveView(button.dataset.view));

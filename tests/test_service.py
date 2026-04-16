@@ -220,6 +220,97 @@ class PortalServiceTests(unittest.TestCase):
         with self.assertRaises(BitrixApiError):
             service.list_responsible_fields("portal-1")
 
+    def test_save_and_get_distribution_group_round_trip(self) -> None:
+        self.service.install_portal(
+            {
+                "auth": {
+                    "member_id": "portal-1",
+                    "domain": "portal.example.bitrix24.ru",
+                    "access_token": "token-1",
+                    "client_endpoint": "https://portal.example.bitrix24.ru/rest/",
+                }
+            }
+        )
+
+        saved = self.service.save_distribution_group(
+            "portal-1",
+            {
+                "name": "Основная группа",
+                "distribution_type": "round_robin_load_time",
+                "event_type": "deal_created",
+                "distribution_stage_id": "NEW",
+                "load_stage_ids": ["NEW", "PREPAYMENT_INVOICE"],
+                "responsible_field_id": "ASSIGNED_BY_ID",
+                "wait_seconds": 120,
+                "retry_interval_seconds": 30,
+                "is_active": True,
+                "members": [
+                    {"user_id": "10", "limit": 3},
+                    {"user_id": "20", "limit": 5},
+                ],
+            },
+        )
+
+        self.assertEqual("Основная группа", saved["name"])
+        self.assertEqual("round_robin_load_time", saved["distribution_type"])
+        self.assertEqual(["NEW", "PREPAYMENT_INVOICE"], saved["load_stage_ids"])
+        self.assertEqual(
+            [
+                {"user_id": "10", "limit": 3, "sort_order": 0},
+                {"user_id": "20", "limit": 5, "sort_order": 1},
+            ],
+            saved["members"],
+        )
+
+        loaded = self.service.get_distribution_group("portal-1")
+        self.assertEqual(saved, loaded)
+
+    def test_save_distribution_group_requires_selected_members_and_load_stages(self) -> None:
+        self.service.install_portal(
+            {
+                "auth": {
+                    "member_id": "portal-1",
+                    "domain": "portal.example.bitrix24.ru",
+                    "access_token": "token-1",
+                    "client_endpoint": "https://portal.example.bitrix24.ru/rest/",
+                }
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "At least one distribution member is required"):
+            self.service.save_distribution_group(
+                "portal-1",
+                {
+                    "name": "Пустая группа",
+                    "distribution_type": "round_robin_load_time",
+                    "event_type": "deal_created",
+                    "distribution_stage_id": "NEW",
+                    "load_stage_ids": ["NEW"],
+                    "responsible_field_id": "ASSIGNED_BY_ID",
+                    "wait_seconds": 120,
+                    "retry_interval_seconds": 30,
+                    "is_active": True,
+                    "members": [],
+                },
+            )
+
+        with self.assertRaisesRegex(ValueError, "At least one load stage is required"):
+            self.service.save_distribution_group(
+                "portal-1",
+                {
+                    "name": "Без нагрузки",
+                    "distribution_type": "round_robin_load_time",
+                    "event_type": "deal_created",
+                    "distribution_stage_id": "NEW",
+                    "load_stage_ids": [],
+                    "responsible_field_id": "ASSIGNED_BY_ID",
+                    "wait_seconds": 120,
+                    "retry_interval_seconds": 30,
+                    "is_active": True,
+                    "members": [{"user_id": "10", "limit": 1}],
+                },
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

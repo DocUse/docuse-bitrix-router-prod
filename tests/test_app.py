@@ -55,10 +55,13 @@ class AppUiTests(unittest.TestCase):
         response = self.client.get("/ui/groups")
 
         self.assertEqual(200, response.status_code)
-        self.assertIn(".reference-grid[hidden]", response.text)
+        self.assertIn('id="distributionForm"', response.text)
+        self.assertIn('id="participantsList"', response.text)
+        self.assertIn('id="loadStagesList"', response.text)
         self.assertIn("BX24.getAuth", response.text)
         self.assertIn("BX24.init", response.text)
         self.assertIn("/api/ui/groups/portal-context", response.text)
+        self.assertIn("/api/ui/groups/config", response.text)
 
     def test_portal_context_endpoint_saves_portal_from_bitrix_auth_payload(self) -> None:
         response = self.client.post(
@@ -90,6 +93,52 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual("token-1", stored.access_token)
         self.assertEqual("refresh-1", stored.refresh_token)
         self.assertEqual("https://portal.example.bitrix24.ru/rest/", stored.client_endpoint)
+
+    def test_distribution_group_config_endpoint_saves_and_returns_config(self) -> None:
+        self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-1",
+                "REFRESH_ID": "refresh-1",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+
+        save_response = self.client.post(
+            "/api/ui/groups/config?member_id=portal-789",
+            json={
+                "name": "Основная группа",
+                "distribution_type": "round_robin_load_time",
+                "event_type": "deal_created",
+                "distribution_stage_id": "NEW",
+                "load_stage_ids": ["NEW", "IN_PROGRESS"],
+                "responsible_field_id": "ASSIGNED_BY_ID",
+                "wait_seconds": 120,
+                "retry_interval_seconds": 30,
+                "is_active": True,
+                "members": [
+                    {"user_id": "10", "limit": 3},
+                    {"user_id": "20", "limit": 5},
+                ],
+            },
+        )
+
+        self.assertEqual(200, save_response.status_code)
+        self.assertEqual("ok", save_response.json()["status"])
+        self.assertEqual("Основная группа", save_response.json()["config"]["name"])
+
+        get_response = self.client.get("/api/ui/groups/config?member_id=portal-789")
+        self.assertEqual(200, get_response.status_code)
+        self.assertEqual("Основная группа", get_response.json()["config"]["name"])
+        self.assertEqual(
+            [
+                {"user_id": "10", "limit": 3, "sort_order": 0},
+                {"user_id": "20", "limit": 5, "sort_order": 1},
+            ],
+            get_response.json()["config"]["members"],
+        )
 
 
 if __name__ == "__main__":

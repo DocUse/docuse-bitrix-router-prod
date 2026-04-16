@@ -56,6 +56,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         member_id = _require_member_id(request)
         return _load_reference_data(service.get_reference_data, member_id)
 
+    @app.get("/api/ui/groups/config")
+    async def groups_config_get(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        return {"config": _load_reference_data(service.get_distribution_group, member_id)}
+
+    @app.post("/api/ui/groups/config")
+    async def groups_config_post(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="JSON payload must be an object")
+        saved = _load_reference_data(lambda portal_member_id: service.save_distribution_group(portal_member_id, payload), member_id)
+        return {"status": "ok", "config": saved}
+
     @app.post("/api/ui/groups/portal-context")
     async def groups_portal_context(request: Request) -> dict[str, object]:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
