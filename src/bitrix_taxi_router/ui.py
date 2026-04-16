@@ -905,6 +905,14 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
             </div>
 
             <div class="stats-grid stats-grid--full">
+              <section class="reference-card" aria-labelledby="statsDiagnosticsTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="statsDiagnosticsTitle">Диагностический журнал</h3>
+                  <p class="reference-card-description">Сохраненные backend-события: bind, hit на endpoint, ошибки и причины остановки.</p>
+                </div>
+                <div class="reference-list" id="statsDiagnosticsList"></div>
+              </section>
+
               <section class="reference-card" aria-labelledby="statsJournalTitle">
                 <div class="reference-card-head">
                   <h3 class="reference-card-title" id="statsJournalTitle">Журнал сделок</h3>
@@ -1097,6 +1105,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     const statsStatus = document.getElementById("statsStatus");
     const statsSummaryList = document.getElementById("statsSummaryList");
     const statsMembersList = document.getElementById("statsMembersList");
+    const statsDiagnosticsList = document.getElementById("statsDiagnosticsList");
     const statsJournalList = document.getElementById("statsJournalList");
     const refreshStatsButton = document.getElementById("refreshStatsButton");
     const initialDistributionMemberId = __INITIAL_MEMBER_ID__;
@@ -1196,6 +1205,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
 
     function renderStatsData(payload) {
       const summary = payload && payload.summary ? payload.summary : {};
+      const diagnostics = Array.isArray(payload && payload.diagnostics) ? payload.diagnostics : [];
       const journal = Array.isArray(payload && payload.journal) ? payload.journal : [];
       const members = Array.isArray(payload && payload.members) ? payload.members : [];
 
@@ -1206,6 +1216,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         { label: `Игнорировано: ${summary.ignored_count || 0}`, muted: true },
       ]));
       statsSummaryList.appendChild(createStatsItem("Runtime участников", [`Записей: ${summary.member_runtime_count || 0}`], []));
+      statsSummaryList.appendChild(createStatsItem("Диагностических записей", [`Всего: ${summary.diagnostic_count || 0}`], []));
 
       if (!members.length) {
         renderStatsEmpty(statsMembersList, "Пока нет runtime-записей по участникам.");
@@ -1221,6 +1232,30 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
               `Обновлено: ${formatStatsDate(member.updated_at)}`,
             ],
             [],
+          ));
+        });
+      }
+
+      if (!diagnostics.length) {
+        renderStatsEmpty(statsDiagnosticsList, "Диагностических записей пока нет.");
+      } else {
+        statsDiagnosticsList.innerHTML = "";
+        diagnostics.forEach((item) => {
+          const detailLines = [];
+          if (item.deal_id) {
+            detailLines.push(`Сделка: #${item.deal_id}`);
+          }
+          if (item.details && Object.keys(item.details).length) {
+            detailLines.push(`Детали: ${JSON.stringify(item.details)}`);
+          }
+          detailLines.push(`Источник: ${item.source}`);
+          detailLines.push(`Время: ${formatStatsDate(item.created_at)}`);
+          statsDiagnosticsList.appendChild(createStatsItem(
+            item.message || "Диагностическое событие",
+            detailLines,
+            [
+              { label: item.level || "info", muted: item.level !== "error" },
+            ],
           ));
         });
       }
@@ -1618,6 +1653,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         setStatsStatus("Не удалось определить member_id портала для загрузки статистики.", "is-error");
         renderStatsEmpty(statsSummaryList, "Нет portal context.");
         renderStatsEmpty(statsMembersList, "Нет portal context.");
+        renderStatsEmpty(statsDiagnosticsList, "Нет portal context.");
         renderStatsEmpty(statsJournalList, "Нет portal context.");
         return;
       }
@@ -1635,6 +1671,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
         setStatsStatus(error.message || "Не удалось загрузить статистику.", "is-error");
         renderStatsEmpty(statsSummaryList, "Статистика пока недоступна.");
         renderStatsEmpty(statsMembersList, "Статистика пока недоступна.");
+        renderStatsEmpty(statsDiagnosticsList, "Статистика пока недоступна.");
         renderStatsEmpty(statsJournalList, "Статистика пока недоступна.");
       } finally {
         statsState.isLoading = false;

@@ -57,4 +57,16 @@ CREATE TABLE IF NOT EXISTS distribution_deal_runtime (
     PRIMARY KEY (portal_member_id, deal_id, event_type),
     FOREIGN KEY (portal_member_id) REFERENCES portals(member_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS diagnostic_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    portal_member_id TEXT,
+    deal_id TEXT,
+    level TEXT NOT NULL,
+    source TEXT NOT NULL,
+    message TEXT NOT NULL,
+    details_json TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (portal_member_id) REFERENCES portals(member_id) ON DELETE CASCADE
+);
 """

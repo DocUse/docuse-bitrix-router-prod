@@ -147,6 +147,16 @@ class PortalService:
             """,
             (portal_member_id,),
         )
+        diagnostic_rows = self.database.fetch_all(
+            """
+            SELECT *
+            FROM diagnostic_logs
+            WHERE portal_member_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT 200
+            """,
+            (portal_member_id,),
+        )
 
         journal = [
             {
@@ -172,9 +182,23 @@ class PortalService:
             }
             for row in member_rows
         ]
+        diagnostics = [
+            {
+                "id": int(row["id"]),
+                "portal_member_id": _as_optional_str(row["portal_member_id"]),
+                "deal_id": _as_optional_str(row["deal_id"]),
+                "level": str(row["level"]),
+                "source": str(row["source"]),
+                "message": str(row["message"]),
+                "details": _parse_json_object(row["details_json"], "diagnostic log details"),
+                "created_at": str(row["created_at"]),
+            }
+            for row in diagnostic_rows
+        ]
         summary = {
             "journal_count": len(journal),
             "member_runtime_count": len(member_runtime),
+            "diagnostic_count": len(diagnostics),
             "assigned_count": sum(1 for item in journal if item["status"] == "assigned"),
             "waiting_count": sum(1 for item in journal if item["status"] == "waiting"),
             "ignored_count": sum(1 for item in journal if item["status"] == "ignored"),
@@ -183,7 +207,44 @@ class PortalService:
             "summary": summary,
             "journal": journal,
             "members": member_runtime,
+            "diagnostics": diagnostics,
         }
+
+    def record_diagnostic_log(
+        self,
+        *,
+        source: str,
+        message: str,
+        level: str = "info",
+        portal_member_id: str | None = None,
+        deal_id: str | None = None,
+        details: dict[str, object] | None = None,
+    ) -> None:
+        normalized_portal_member_id = _as_optional_str(portal_member_id)
+        if normalized_portal_member_id:
+            existing_portal = self.database.fetch_one(
+                "SELECT member_id FROM portals WHERE member_id = ?",
+                (normalized_portal_member_id,),
+            )
+            if existing_portal is None:
+                normalized_portal_member_id = None
+        self.database.execute(
+            """
+            INSERT INTO diagnostic_logs (
+                portal_member_id, deal_id, level, source, message, details_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                normalized_portal_member_id,
+                _as_optional_str(deal_id),
+                level.strip().lower() or "info",
+                source.strip(),
+                message.strip(),
+                to_json(details or {}),
+                _iso_now(),
+            ),
+        )
 
     def save_distribution_group(self, portal_member_id: str, payload: dict[str, Any]) -> dict[str, object]:
         self.get_portal(portal_member_id)
@@ -244,6 +305,12 @@ class PortalService:
             portal_member_id,
             normalized_handler_url,
         )
+        self.record_diagnostic_log(
+            source="event_binding",
+            message="Ensuring ONCRMDEALADD binding.",
+            portal_member_id=portal_member_id,
+            details={"handler": normalized_handler_url},
+        )
         client = self._get_bitrix_client(portal_member_id)
         existing = self._normalize_event_handlers(client.call("event.get"))
         for binding in existing:
@@ -255,6 +322,12 @@ class PortalService:
                 "ONCRMDEALADD binding already exists for portal=%s handler=%s",
                 portal_member_id,
                 normalized_handler_url,
+            )
+            self.record_diagnostic_log(
+                source="event_binding",
+                message="ONCRMDEALADD binding already exists.",
+                portal_member_id=portal_member_id,
+                details={"handler": normalized_handler_url},
             )
             return {
                 "event": BITRIX_EVENT_DEAL_CREATED,
@@ -275,6 +348,12 @@ class PortalService:
             portal_member_id,
             normalized_handler_url,
         )
+        self.record_diagnostic_log(
+            source="event_binding",
+            message="Created ONCRMDEALADD binding.",
+            portal_member_id=portal_member_id,
+            details={"handler": normalized_handler_url},
+        )
         return {
             "event": BITRIX_EVENT_DEAL_CREATED,
             "handler": normalized_handler_url,
@@ -290,6 +369,11 @@ class PortalService:
         config = self.get_distribution_group(portal_member_id)
         if config is None:
             logger.info("Skipping ONCRMDEALADD binding for portal=%s: no distribution config", portal_member_id)
+            self.record_diagnostic_log(
+                source="event_binding",
+                message="Skipped ONCRMDEALADD binding because distribution group is not configured.",
+                portal_member_id=portal_member_id,
+            )
             return {
                 "event": BITRIX_EVENT_DEAL_CREATED,
                 "handler": handler_url.strip(),
@@ -303,6 +387,12 @@ class PortalService:
                 "Skipping ONCRMDEALADD binding for portal=%s: unsupported config event_type=%s",
                 portal_member_id,
                 config.get("event_type"),
+            )
+            self.record_diagnostic_log(
+                source="event_binding",
+                message="Skipped ONCRMDEALADD binding because config event_type is unsupported.",
+                portal_member_id=portal_member_id,
+                details={"event_type": str(config.get("event_type") or "")},
             )
             return {
                 "event": BITRIX_EVENT_DEAL_CREATED,
@@ -319,7 +409,20 @@ class PortalService:
     def handle_bitrix_event(self, payload: dict[str, Any]) -> dict[str, object]:
         event_name = str(payload.get("event") or "").strip().upper()
         logger.info("Received Bitrix event event=%s payload_keys=%s", event_name or "<empty>", sorted(payload.keys()))
+        portal_member_id = _as_optional_str(_safe_extract_event_member_id(payload))
+        self.record_diagnostic_log(
+            source="bitrix_event",
+            message="Received Bitrix event payload.",
+            portal_member_id=portal_member_id,
+            details={"event": event_name or None, "payload_keys": sorted(payload.keys())},
+        )
         if event_name != BITRIX_EVENT_DEAL_CREATED:
+            self.record_diagnostic_log(
+                source="bitrix_event",
+                message="Ignored unsupported Bitrix event.",
+                portal_member_id=portal_member_id,
+                details={"event": event_name or None},
+            )
             return {
                 "status": "ignored",
                 "reason": "unsupported_event",
@@ -336,6 +439,13 @@ class PortalService:
             portal_member_id,
             deal_id,
         )
+        self.record_diagnostic_log(
+            source="bitrix_event",
+            message="Processing ONCRMDEALADD.",
+            portal_member_id=portal_member_id,
+            deal_id=deal_id,
+            details={"event": event_name},
+        )
         return self._handle_deal_created_event(portal_member_id, deal_id)
 
     def _handle_deal_created_event(self, portal_member_id: str, deal_id: str) -> dict[str, object]:
@@ -351,11 +461,24 @@ class PortalService:
                 deal_id,
                 existing_runtime.get("status"),
             )
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored duplicate ONCRMDEALADD event.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+                details={"status": str(existing_runtime.get("status") or "")},
+            )
             return result
 
         config = self.get_distribution_group(portal_member_id)
         if config is None:
             logger.info("Ignoring deal assignment portal=%s deal_id=%s: no config", portal_member_id, deal_id)
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored deal because distribution group is not configured.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+            )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
                 deal_id,
@@ -364,6 +487,12 @@ class PortalService:
             )
         if not bool(config.get("is_active")):
             logger.info("Ignoring deal assignment portal=%s deal_id=%s: config inactive", portal_member_id, deal_id)
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored deal because distribution group is inactive.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+            )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
                 deal_id,
@@ -377,6 +506,13 @@ class PortalService:
                 deal_id,
                 config.get("event_type"),
             )
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored deal because distribution config does not handle deal creation.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+                details={"event_type": str(config.get("event_type") or "")},
+            )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
                 deal_id,
@@ -387,6 +523,12 @@ class PortalService:
         members = config.get("members")
         if not isinstance(members, list) or not members:
             logger.info("Ignoring deal assignment portal=%s deal_id=%s: no members", portal_member_id, deal_id)
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored deal because distribution group has no members.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+            )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
                 deal_id,
@@ -405,6 +547,16 @@ class PortalService:
                 current_stage_id or "<empty>",
                 config["distribution_stage_id"],
             )
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="Ignored deal because current stage does not match distribution stage.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+                details={
+                    "current_stage_id": current_stage_id or "",
+                    "expected_stage_id": str(config["distribution_stage_id"]),
+                },
+            )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
                 deal_id,
@@ -419,6 +571,13 @@ class PortalService:
                 portal_member_id,
                 deal_id,
                 selection["loads"],
+            )
+            self.record_diagnostic_log(
+                source="deal_assignment",
+                message="No available distribution members: all limits are reached.",
+                portal_member_id=portal_member_id,
+                deal_id=deal_id,
+                details={"loads": selection["loads"]},
             )
             return self._record_and_return_deal_runtime(
                 portal_member_id,
@@ -441,6 +600,17 @@ class PortalService:
             selected_user_id,
             responsible_field_id,
             selection["loads"],
+        )
+        self.record_diagnostic_log(
+            source="deal_assignment",
+            message="Assigned deal to distribution member.",
+            portal_member_id=portal_member_id,
+            deal_id=deal_id,
+            details={
+                "user_id": selected_user_id,
+                "responsible_field_id": responsible_field_id,
+                "loads": selection["loads"],
+            },
         )
         return self._record_and_return_deal_runtime(
             portal_member_id,
@@ -983,6 +1153,16 @@ def _parse_json_list(raw_value: Any, field_name: str) -> list[dict[str, object]]
     return parsed
 
 
+def _parse_json_object(raw_value: Any, field_name: str) -> dict[str, object]:
+    try:
+        parsed = json.loads(str(raw_value or "{}"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Stored {field_name} payload is invalid") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Stored {field_name} payload must be an object")
+    return parsed
+
+
 def _resolve_responsible_field_api_name(field_id: str) -> str:
     normalized = field_id.strip().upper()
     if normalized == "ASSIGNED_BY_ID":
@@ -999,3 +1179,13 @@ def _maybe_int(value: Any) -> int | str:
 
 def _normalize_handler_url(value: str) -> str:
     return value.strip().rstrip("/")
+
+
+def _safe_extract_event_member_id(payload: dict[str, Any]) -> str | None:
+    auth = payload.get("auth")
+    if isinstance(auth, dict):
+        member_id = str(auth.get("member_id") or "").strip()
+        if member_id:
+            return member_id
+    member_id = str(payload.get("member_id") or payload.get("MEMBER_ID") or "").strip()
+    return member_id or None

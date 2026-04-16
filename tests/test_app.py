@@ -82,6 +82,7 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
         self.assertIn("Распределение сделок", response.text)
         self.assertIn('id="statsPanel"', response.text)
+        self.assertIn('id="statsDiagnosticsList"', response.text)
         self.assertIn('id="statsJournalList"', response.text)
         self.assertIn('id="distributionGroupsPanel"', response.text)
         self.assertIn('id="createDistributionGroupButton"', response.text)
@@ -236,17 +237,39 @@ class AppUiTests(unittest.TestCase):
                 "2026-04-16T09:01:00+00:00",
             ),
         )
+        database.execute(
+            """
+            INSERT INTO diagnostic_logs (
+                portal_member_id, deal_id, level, source, message, details_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "portal-789",
+                "700",
+                "info",
+                "bitrix_event_endpoint",
+                "Received POST /api/bitrix/events hit.",
+                '{"content_type":"application/x-www-form-urlencoded"}',
+                "2026-04-16T09:00:30+00:00",
+            ),
+        )
 
         response = self.client.get("/api/ui/stats?member_id=portal-789")
 
         self.assertEqual(200, response.status_code)
         payload = response.json()
         self.assertEqual(1, payload["summary"]["journal_count"])
+        self.assertGreaterEqual(payload["summary"]["diagnostic_count"], 1)
         self.assertEqual(1, payload["summary"]["assigned_count"])
         self.assertEqual("700", payload["journal"][0]["deal_id"])
         self.assertEqual("10", payload["journal"][0]["assigned_user_id"])
         self.assertEqual("10", payload["journal"][0]["assigned_user_name"])
         self.assertEqual("700", payload["members"][0]["last_assigned_deal_id"])
+        self.assertIn(
+            "Received POST /api/bitrix/events hit.",
+            [item["message"] for item in payload["diagnostics"]],
+        )
 
     def test_distribution_group_config_endpoint_binds_event_for_public_https_request(self) -> None:
         fake_client = FakeBitrixClient(

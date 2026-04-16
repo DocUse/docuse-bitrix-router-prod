@@ -51,6 +51,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if _payload_contains_installable_auth(payload):
             try:
                 service.install_portal(payload)
+                _record_app_diagnostic_log(
+                    service,
+                    source="portal_context",
+                    message="Saved portal context from /ui/groups.",
+                    portal_member_id=member_id,
+                )
                 _ensure_binding_for_configured_portal(
                     request,
                     service=service,
@@ -84,6 +90,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not isinstance(payload, dict):
             raise HTTPException(status_code=400, detail="JSON payload must be an object")
         saved = _load_reference_data(lambda portal_member_id: service.save_distribution_group(portal_member_id, payload), member_id)
+        _record_app_diagnostic_log(
+            service,
+            source="distribution_config",
+            message="Saved distribution group configuration.",
+            portal_member_id=member_id,
+            details={"event_type": payload.get("event_type"), "distribution_stage_id": payload.get("distribution_stage_id")},
+        )
         binding = _ensure_binding_for_configured_portal(
             request,
             service=service,
@@ -98,6 +111,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
         try:
             saved = service.install_portal(payload)
+            _record_app_diagnostic_log(
+                service,
+                source="portal_context",
+                message="Saved portal context from /api/ui/groups/portal-context.",
+                portal_member_id=str(saved["member_id"]),
+            )
             binding = _ensure_binding_for_configured_portal(
                 request,
                 service=service,
@@ -127,23 +146,55 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/api/bitrix/events", name="bitrix_event_handler")
     async def bitrix_event_handler(request: Request) -> dict[str, object]:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
+        portal_member_id = _extract_member_id_from_context(payload)
         logger.info(
             "Received /api/bitrix/events hit content_type=%s keys=%s",
             request.headers.get("content-type"),
             sorted(payload.keys()),
         )
+        _record_app_diagnostic_log(
+            service,
+            source="bitrix_event_endpoint",
+            message="Received POST /api/bitrix/events hit.",
+            portal_member_id=portal_member_id,
+            deal_id=_extract_deal_id_for_logging(payload),
+            details={"content_type": request.headers.get("content-type"), "payload_keys": sorted(payload.keys())},
+        )
         try:
             result = service.handle_bitrix_event(payload)
         except ValueError as exc:
             logger.exception("Bitrix event handler rejected payload")
+            _record_app_diagnostic_log(
+                service,
+                source="bitrix_event_endpoint",
+                message="Rejected Bitrix event payload.",
+                level="error",
+                portal_member_id=portal_member_id,
+                deal_id=_extract_deal_id_for_logging(payload),
+                details={"error": str(exc)},
+            )
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except BitrixApiError as exc:
             logger.exception("Bitrix event handler failed during Bitrix API call")
+            _record_app_diagnostic_log(
+                service,
+                source="bitrix_event_endpoint",
+                message="Bitrix API call failed while processing event.",
+                level="error",
+                portal_member_id=portal_member_id,
+                deal_id=_extract_deal_id_for_logging(payload),
+                details={"error": str(exc)},
+            )
             raise HTTPException(status_code=502, detail=str(exc)) from exc
         return {"status": "ok", "result": result}
 
     @app.get("/api/bitrix/events", name="bitrix_event_handler_probe")
     async def bitrix_event_handler_probe() -> dict[str, str]:
+        _record_app_diagnostic_log(
+            service,
+            source="bitrix_event_endpoint",
+            message="Received GET /api/bitrix/events probe.",
+        )
         return {"status": "ready"}
 
     @app.head("/api/bitrix/events")
@@ -170,6 +221,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if _payload_contains_installable_auth(payload):
             try:
                 service.install_portal(payload)
+                _record_app_diagnostic_log(
+                    service,
+                    source="portal_context",
+                    message="Saved portal context from /install.",
+                    portal_member_id=member_id,
+                )
                 _ensure_binding_for_configured_portal(
                     request,
                     service=service,
@@ -194,6 +251,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         payload = _normalize_bitrix_payload(await _read_bitrix_payload(request))
         try:
             saved = service.install_portal(payload)
+            _record_app_diagnostic_log(
+                service,
+                source="portal_context",
+                message="Saved portal context from /install/callback.",
+                portal_member_id=str(saved["member_id"]),
+            )
             binding = _ensure_binding_for_configured_portal(
                 request,
                 service=service,
@@ -308,6 +371,14 @@ def _ensure_binding_for_configured_portal(
     event_handler_url = _get_public_event_handler_url(request, settings=settings, route_name="bitrix_event_handler")
     if not event_handler_url:
         logger.warning("Skipping event binding source=%s portal=%s: public handler URL unavailable", source, member_id)
+        _record_app_diagnostic_log(
+            service,
+            source="event_binding",
+            message="Skipped event binding because public handler URL is unavailable.",
+            level="warning",
+            portal_member_id=member_id,
+            details={"trigger_source": source},
+        )
         return None
 
     try:
@@ -319,6 +390,14 @@ def _ensure_binding_for_configured_portal(
             member_id,
             event_handler_url,
         )
+        _record_app_diagnostic_log(
+            service,
+            source="event_binding",
+            message="Failed to ensure ONCRMDEALADD binding.",
+            level="error",
+            portal_member_id=member_id,
+            details={"trigger_source": source, "handler": event_handler_url},
+        )
         raise
 
     logger.info(
@@ -327,6 +406,13 @@ def _ensure_binding_for_configured_portal(
         member_id,
         event_handler_url,
         binding,
+    )
+    _record_app_diagnostic_log(
+        service,
+        source="event_binding",
+        message="Ensured ONCRMDEALADD binding.",
+        portal_member_id=member_id,
+        details={"trigger_source": source, "handler": event_handler_url, "binding": binding},
     )
     return binding
 
@@ -352,3 +438,37 @@ def _get_public_event_handler_url(request: Request, *, settings: Settings, route
 
     path = str(request.app.url_path_for(route_name))
     return f"{scheme}://{host}{path}"
+
+
+def _record_app_diagnostic_log(
+    service: PortalService,
+    *,
+    source: str,
+    message: str,
+    level: str = "info",
+    portal_member_id: str | None = None,
+    deal_id: str | None = None,
+    details: dict[str, object] | None = None,
+) -> None:
+    try:
+        service.record_diagnostic_log(
+            source=source,
+            message=message,
+            level=level,
+            portal_member_id=portal_member_id,
+            deal_id=deal_id,
+            details=details,
+        )
+    except Exception:
+        logger.exception("Failed to persist diagnostic log source=%s message=%s", source, message)
+
+
+def _extract_deal_id_for_logging(payload: dict[str, object]) -> str | None:
+    data = payload.get("data")
+    if isinstance(data, dict):
+        fields = data.get("FIELDS")
+        if isinstance(fields, dict):
+            deal_id = str(fields.get("ID") or "").strip()
+            if deal_id:
+                return deal_id
+    return None
