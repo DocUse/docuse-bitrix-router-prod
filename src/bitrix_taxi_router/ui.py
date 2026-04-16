@@ -462,6 +462,36 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       gap: 10px;
     }
 
+    .distribution-scroll-box {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      background: #fbfbfe;
+      padding: 8px 10px;
+      overflow-y: auto;
+    }
+
+    .distribution-scroll-box--participants {
+      max-height: 170px;
+    }
+
+    .distribution-scroll-box--stages {
+      max-height: 155px;
+    }
+
+    .load-stages-layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .load-stages-note {
+      border: 1px solid var(--border-soft);
+      border-radius: 14px;
+      background: #fbfbfe;
+      padding: 14px 12px;
+    }
+
     .participant-row,
     .checkbox-row {
       display: grid;
@@ -628,7 +658,8 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       .distribution-form-grid,
       .distribution-fields-grid,
       .bulk-limit-row,
-      .participant-row {
+      .participant-row,
+      .load-stages-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -790,16 +821,24 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
                     </label>
                     <button class="secondary-action" id="applyBulkLimitButton" type="button">Применить</button>
                   </div>
-                  <div class="participant-list" id="participantsList"></div>
+                  <div class="distribution-scroll-box distribution-scroll-box--participants">
+                    <div class="participant-list" id="participantsList"></div>
+                  </div>
                 </section>
 
                 <section class="distribution-section" aria-labelledby="loadStagesTitle">
                   <h3 class="distribution-section-title" id="loadStagesTitle">Статусы для определения нагрузки</h3>
-                  <p class="distribution-section-description">
-                    Вы выбрали режим распределения по нагрузке на менеджера, поэтому в данном поле следует указать, в каких
-                    стадиях активные сделки являются нагрузкой для выбранных менеджеров.
-                  </p>
-                  <div class="checkbox-list" id="loadStagesList"></div>
+                  <div class="load-stages-layout">
+                    <div class="load-stages-note">
+                      <p class="distribution-section-description">
+                        Вы выбрали режим распределения по нагрузке на менеджера, поэтому в данном поле следует указать, в каких
+                        стадиях активные сделки являются нагрузкой для выбранных менеджеров.
+                      </p>
+                    </div>
+                    <div class="distribution-scroll-box distribution-scroll-box--stages">
+                      <div class="checkbox-list" id="loadStagesList"></div>
+                    </div>
+                  </div>
                 </section>
               </div>
 
