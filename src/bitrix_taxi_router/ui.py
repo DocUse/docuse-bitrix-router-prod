@@ -404,10 +404,10 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     }
 
     .distribution-input--compact {
-      width: 65px;
+      width: 96px;
       padding-left: 12px;
       padding-right: 12px;
-      text-align: center;
+      text-align: left;
     }
 
     .distribution-input:disabled,
@@ -481,6 +481,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     }
 
     .distribution-scroll-box--stages {
+      min-height: 112px;
       max-height: 155px;
     }
 
@@ -488,7 +489,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       display: grid;
       grid-template-columns: 296px minmax(0, 1fr);
       gap: 16px;
-      align-items: start;
+      align-items: stretch;
     }
 
     .load-stages-note {
@@ -496,7 +497,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       border-radius: 10px;
       background: #fbfbfe;
       padding: 12px;
-      min-height: 78px;
+      min-height: 112px;
       display: flex;
       align-items: center;
     }
@@ -513,7 +514,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     }
 
     .participant-row {
-      grid-template-columns: minmax(0, 1fr) 65px;
+      grid-template-columns: minmax(0, 1fr) 96px;
     }
 
     .participant-main,
@@ -561,6 +562,13 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       display: flex;
       flex-direction: column;
       gap: 0;
+    }
+
+    .participant-limit .distribution-input {
+      width: 96px;
+      padding-left: 12px;
+      padding-right: 12px;
+      text-align: left;
     }
 
     .participant-limit-label {
@@ -627,8 +635,20 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       opacity: 0.92;
     }
 
-    .distribution-form-hidden-fields[hidden] {
-      display: none;
+    .distribution-checkbox-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 38px;
+      font-size: 16px;
+      line-height: 1.3;
+      color: #333333;
+    }
+
+    .distribution-checkbox-row input {
+      width: 20px;
+      height: 20px;
+      margin: 0;
     }
 
     .section-panel[hidden] {
@@ -849,18 +869,22 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
                 </span>
               </label>
 
-              <div class="distribution-form-hidden-fields" hidden>
-                <label class="distribution-field">
-                  <span class="distribution-label">Интервал перепроверки при переполнении лимитов</span>
+              <label class="distribution-row distribution-row--simple">
+                <span class="distribution-row-label">Интервал перепроверки при переполнении лимитов:</span>
+                <span class="distribution-row-control">
                   <input class="distribution-input" id="retryIntervalInput" type="number" min="1" step="1" placeholder="Например, 30">
-                </label>
-                <label class="distribution-field">
-                  <span class="distribution-toggle">
+                </span>
+              </label>
+
+              <label class="distribution-row distribution-row--simple">
+                <span class="distribution-row-label">Группа активна:</span>
+                <span class="distribution-row-control">
+                  <span class="distribution-checkbox-row">
                     <input id="groupActiveInput" type="checkbox">
-                    <span>Группа активна</span>
+                    <span>Активна</span>
                   </span>
-                </label>
-              </div>
+                </span>
+              </label>
 
               <div class="distribution-actions">
                 <button class="primary-action" id="saveDistributionButton" type="button">Применить</button>
