@@ -11,6 +11,7 @@ from .database import Database, to_json
 
 DEAL_ENTITY_TYPE_ID = 2
 BITRIX_EVENT_DEAL_CREATED = "ONCRMDEALADD"
+BITRIX_EVENT_APP_TEST = "ONAPPTEST"
 DISTRIBUTION_EVENT_DEAL_CREATED = "deal_created"
 logger = logging.getLogger(__name__)
 
@@ -296,41 +297,95 @@ class PortalService:
         return saved
 
     def ensure_deal_created_event_binding(self, portal_member_id: str, handler_url: str) -> dict[str, object]:
+        return self._ensure_event_binding(
+            portal_member_id,
+            handler_url,
+            event_name=BITRIX_EVENT_DEAL_CREATED,
+            ensure_message="Ensuring ONCRMDEALADD binding.",
+            already_exists_message="ONCRMDEALADD binding already exists.",
+            created_message="Created ONCRMDEALADD binding.",
+        )
+
+    def run_event_delivery_check(self, portal_member_id: str, handler_url: str) -> dict[str, object]:
+        binding = self._ensure_event_binding(
+            portal_member_id,
+            handler_url,
+            event_name=BITRIX_EVENT_APP_TEST,
+            ensure_message="Ensuring ONAPPTEST binding.",
+            already_exists_message="ONAPPTEST binding already exists.",
+            created_message="Created ONAPPTEST binding.",
+        )
+        check_id = f"delivery-check-{datetime.now(tz=timezone.utc).strftime('%Y%m%d%H%M%S')}"
+        client = self._get_bitrix_client(portal_member_id)
+        client.call(
+            "event.test",
+            {
+                "check_id": check_id,
+                "portal_member_id": portal_member_id,
+                "handler_url": handler_url.strip(),
+            },
+        )
+        self.record_diagnostic_log(
+            source="event_delivery_check",
+            message="Triggered Bitrix event delivery self-test.",
+            portal_member_id=portal_member_id,
+            details={"event": BITRIX_EVENT_APP_TEST, "check_id": check_id, "handler": handler_url.strip()},
+        )
+        return {
+            "event": BITRIX_EVENT_APP_TEST,
+            "check_id": check_id,
+            "handler": handler_url.strip(),
+            "binding": binding,
+            "triggered": True,
+        }
+
+    def _ensure_event_binding(
+        self,
+        portal_member_id: str,
+        handler_url: str,
+        *,
+        event_name: str,
+        ensure_message: str,
+        already_exists_message: str,
+        created_message: str,
+    ) -> dict[str, object]:
         normalized_handler_url = handler_url.strip()
         if not normalized_handler_url:
             raise ValueError("Event handler URL is required")
 
         logger.info(
-            "Ensuring ONCRMDEALADD binding for portal=%s handler=%s",
+            "Ensuring %s binding for portal=%s handler=%s",
+            event_name,
             portal_member_id,
             normalized_handler_url,
         )
         self.record_diagnostic_log(
             source="event_binding",
-            message="Ensuring ONCRMDEALADD binding.",
+            message=ensure_message,
             portal_member_id=portal_member_id,
-            details={"handler": normalized_handler_url},
+            details={"handler": normalized_handler_url, "event": event_name},
         )
         client = self._get_bitrix_client(portal_member_id)
         existing = self._normalize_event_handlers(client.call("event.get"))
         for binding in existing:
-            if binding["event"] != BITRIX_EVENT_DEAL_CREATED:
+            if binding["event"] != event_name:
                 continue
             if _normalize_handler_url(str(binding["handler"])) != _normalize_handler_url(normalized_handler_url):
                 continue
             logger.info(
-                "ONCRMDEALADD binding already exists for portal=%s handler=%s",
+                "%s binding already exists for portal=%s handler=%s",
+                event_name,
                 portal_member_id,
                 normalized_handler_url,
             )
             self.record_diagnostic_log(
                 source="event_binding",
-                message="ONCRMDEALADD binding already exists.",
+                message=already_exists_message,
                 portal_member_id=portal_member_id,
-                details={"handler": normalized_handler_url},
+                details={"handler": normalized_handler_url, "event": event_name},
             )
             return {
-                "event": BITRIX_EVENT_DEAL_CREATED,
+                "event": event_name,
                 "handler": normalized_handler_url,
                 "already_bound": True,
                 "bound": False,
@@ -339,23 +394,24 @@ class PortalService:
         client.call(
             "event.bind",
             {
-                "event": BITRIX_EVENT_DEAL_CREATED,
+                "event": event_name,
                 "handler": normalized_handler_url,
             },
         )
         logger.info(
-            "Created ONCRMDEALADD binding for portal=%s handler=%s",
+            "Created %s binding for portal=%s handler=%s",
+            event_name,
             portal_member_id,
             normalized_handler_url,
         )
         self.record_diagnostic_log(
             source="event_binding",
-            message="Created ONCRMDEALADD binding.",
+            message=created_message,
             portal_member_id=portal_member_id,
-            details={"handler": normalized_handler_url},
+            details={"handler": normalized_handler_url, "event": event_name},
         )
         return {
-            "event": BITRIX_EVENT_DEAL_CREATED,
+            "event": event_name,
             "handler": normalized_handler_url,
             "already_bound": False,
             "bound": True,

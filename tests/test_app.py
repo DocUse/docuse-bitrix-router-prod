@@ -84,6 +84,7 @@ class AppUiTests(unittest.TestCase):
         self.assertIn('id="statsPanel"', response.text)
         self.assertIn('id="statsDiagnosticsList"', response.text)
         self.assertIn('id="statsJournalList"', response.text)
+        self.assertIn('id="runDeliveryCheckButton"', response.text)
         self.assertIn('id="distributionGroupsPanel"', response.text)
         self.assertIn('id="createDistributionGroupButton"', response.text)
         self.assertIn('id="distributionForm"', response.text)
@@ -269,6 +270,58 @@ class AppUiTests(unittest.TestCase):
         self.assertIn(
             "Received POST /api/bitrix/events hit.",
             [item["message"] for item in payload["diagnostics"]],
+        )
+
+    def test_stats_event_delivery_check_triggers_onapptest(self) -> None:
+        self.settings.public_base_url = "https://router.example.com"
+        fake_client = FakeBitrixClient(
+            {
+                "event.get": {"result": []},
+                "event.bind": {"result": True},
+                "event.test": {"result": True},
+            }
+        )
+        self.client.app.state.portal_service.bitrix_client_factory = lambda portal: fake_client
+        self.client.post(
+            "/api/ui/groups/portal-context",
+            json={
+                "AUTH_ID": "token-1",
+                "REFRESH_ID": "refresh-1",
+                "DOMAIN": "portal.example.bitrix24.ru",
+                "PROTOCOL": "1",
+                "member_id": "portal-789",
+            },
+        )
+
+        response = self.client.post("/api/ui/stats/event-delivery-check?member_id=portal-789")
+
+        self.assertEqual(200, response.status_code)
+        payload = response.json()
+        self.assertEqual("ONAPPTEST", payload["event"])
+        self.assertEqual("https://router.example.com/api/bitrix/events", payload["handler"])
+        self.assertTrue(payload["triggered"])
+        self.assertEqual(
+            [
+                ("call", "event.get", None),
+                (
+                    "call",
+                    "event.bind",
+                    {
+                        "event": "ONAPPTEST",
+                        "handler": "https://router.example.com/api/bitrix/events",
+                    },
+                ),
+                (
+                    "call",
+                    "event.test",
+                    {
+                        "check_id": payload["check_id"],
+                        "portal_member_id": "portal-789",
+                        "handler_url": "https://router.example.com/api/bitrix/events",
+                    },
+                ),
+            ],
+            fake_client.calls,
         )
 
     def test_distribution_group_config_endpoint_binds_event_for_public_https_request(self) -> None:

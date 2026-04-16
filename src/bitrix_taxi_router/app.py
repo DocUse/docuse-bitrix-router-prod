@@ -83,6 +83,24 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         member_id = _require_member_id(request)
         return _load_reference_data(service.get_distribution_statistics, member_id)
 
+    @app.post("/api/ui/stats/event-delivery-check")
+    async def stats_event_delivery_check(request: Request) -> dict[str, object]:
+        member_id = _require_member_id(request)
+        event_handler_url = _get_public_event_handler_url(request, settings=effective_settings, route_name="bitrix_event_handler")
+        if not event_handler_url:
+            _record_app_diagnostic_log(
+                service,
+                source="event_delivery_check",
+                message="Skipped self-test because public handler URL is unavailable.",
+                level="warning",
+                portal_member_id=member_id,
+            )
+            raise HTTPException(status_code=400, detail="Public event handler URL is unavailable")
+        return _load_reference_data(
+            lambda portal_member_id: service.run_event_delivery_check(portal_member_id, event_handler_url),
+            member_id,
+        )
+
     @app.post("/api/ui/groups/config")
     async def groups_config_post(request: Request) -> dict[str, object]:
         member_id = _require_member_id(request)

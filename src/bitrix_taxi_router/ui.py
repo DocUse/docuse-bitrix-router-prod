@@ -879,6 +879,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
             </div>
 
             <div class="stats-toolbar">
+              <button class="secondary-action" id="runDeliveryCheckButton" type="button">Проверить доставку</button>
               <button class="secondary-action" id="refreshStatsButton" type="button">Обновить журнал</button>
             </div>
 
@@ -1107,6 +1108,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     const statsMembersList = document.getElementById("statsMembersList");
     const statsDiagnosticsList = document.getElementById("statsDiagnosticsList");
     const statsJournalList = document.getElementById("statsJournalList");
+    const runDeliveryCheckButton = document.getElementById("runDeliveryCheckButton");
     const refreshStatsButton = document.getElementById("refreshStatsButton");
     const initialDistributionMemberId = __INITIAL_MEMBER_ID__;
     const distributionState = {
@@ -1678,6 +1680,32 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       }
     }
 
+    async function runEventDeliveryCheck() {
+      const distributionMemberId = await resolveDistributionMemberId();
+      if (!distributionMemberId) {
+        setStatsStatus("Не удалось определить member_id портала для запуска self-test.", "is-error");
+        return;
+      }
+
+      setStatsStatus("Запускаем self-test доставки события из Bitrix...");
+      try {
+        const payload = await fetchJson(
+          `/api/ui/stats/event-delivery-check?member_id=${encodeURIComponent(distributionMemberId)}`,
+          { method: "POST" },
+        );
+        statsState.isLoaded = false;
+        setStatsStatus(
+          `Self-test отправлен. check_id: ${payload.check_id}. Через пару секунд журнал обновится автоматически.`,
+          "is-success",
+        );
+        window.setTimeout(() => {
+          loadStatsData(true);
+        }, 2500);
+      } catch (error) {
+        setStatsStatus(error.message || "Не удалось запустить self-test доставки события.", "is-error");
+      }
+    }
+
     async function loadDistributionReferenceData() {
       if (distributionState.isLoaded || distributionState.isLoading) {
         if (distributionState.isLoaded) {
@@ -1773,6 +1801,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     applyBulkLimitButton.addEventListener("click", applyBulkLimitFromForm);
     createDistributionGroupButton.addEventListener("click", handleCreateDistributionGroupClick);
     saveDistributionButton.addEventListener("click", saveDistributionConfig);
+    runDeliveryCheckButton.addEventListener("click", runEventDeliveryCheck);
     refreshStatsButton.addEventListener("click", () => loadStatsData(true));
 
     menuButtons.forEach((button) => {
