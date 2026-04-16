@@ -213,15 +213,6 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       gap: 24px;
     }
 
-    .distribution-groups-title {
-      margin: 0;
-      font-size: 24px;
-      line-height: 1.3;
-      font-weight: 700;
-      text-align: center;
-      color: #333333;
-    }
-
     .distribution-create-card {
       width: 340px;
       min-height: 205px;
@@ -850,7 +841,6 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
             </div>
 
             <div class="distribution-groups-panel" id="distributionGroupsPanel">
-              <h3 class="distribution-groups-title">Группы распределения</h3>
               <button class="distribution-create-card" id="createDistributionGroupButton" type="button">
                 <span class="distribution-create-plus" aria-hidden="true">+</span>
                 <span class="distribution-create-label">Добавить новую группу</span>
@@ -1028,6 +1018,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       auth: null,
       referenceData: null,
       config: null,
+      openFormRequested: false,
     };
 
     function setDistributionStatus(message, tone) {
@@ -1052,9 +1043,17 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
 
     async function fetchJson(url, options) {
       const response = await fetch(url, options);
-      const payload = await response.json().catch(() => ({}));
+      const responseText = await response.text();
+      let payload = {};
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch (error) {
+          payload = {};
+        }
+      }
       if (!response.ok) {
-        throw new Error(payload.detail || "Backend returned an unexpected response.");
+        throw new Error(payload.detail || responseText || `Backend returned HTTP ${response.status}.`);
       }
       return payload;
     }
@@ -1398,25 +1397,31 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     async function loadDistributionReferenceData() {
       if (distributionState.isLoaded || distributionState.isLoading) {
         if (distributionState.isLoaded) {
-          renderDistributionConfigForm();
+          if (distributionState.openFormRequested) {
+            renderDistributionConfigForm();
+          }
         }
         return;
       }
 
       const distributionMemberId = await resolveDistributionMemberId();
       if (!distributionMemberId) {
-        showDistributionLanding();
-        setDistributionStatus(
-          "Не удалось определить member_id портала. Откройте приложение внутри Bitrix24 или завершите повторную установку, чтобы загрузить реальные справочники.",
-          "is-error"
-        );
+        if (distributionState.openFormRequested) {
+          showDistributionLanding();
+          setDistributionStatus(
+            "Не удалось определить member_id портала. Откройте приложение внутри Bitrix24 или завершите повторную установку, чтобы загрузить реальные справочники.",
+            "is-error"
+          );
+        }
         return;
       }
 
       distributionState.isLoading = true;
-      showDistributionForm();
-      distributionForm.hidden = true;
-      setDistributionStatus("Загружаем данные портала и конфигурацию группы...");
+      if (distributionState.openFormRequested) {
+        showDistributionForm();
+        distributionForm.hidden = true;
+        setDistributionStatus("Загружаем данные портала и конфигурацию группы...");
+      }
 
       try {
         await syncPortalContextFromBitrix();
@@ -1427,19 +1432,30 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
 
         distributionState.referenceData = referencePayload;
         distributionState.config = normalizeLoadedDistributionConfig(configPayload.config, referencePayload);
-        renderDistributionConfigForm();
         distributionState.isLoaded = true;
-        if (configPayload.config) {
-          setDistributionStatus("Сохраненная конфигурация группы загружена. Изменения применяются кнопкой «Применить».", "is-success");
+        if (distributionState.openFormRequested) {
+          renderDistributionConfigForm();
+          if (configPayload.config) {
+            setDistributionStatus("Сохраненная конфигурация группы загружена. Изменения применяются кнопкой «Применить».", "is-success");
+          } else {
+            setDistributionStatus("Справочники Bitrix24 загружены. Заполните форму и нажмите «Применить».", "is-success");
+          }
         } else {
-          setDistributionStatus("Справочники Bitrix24 загружены. Заполните форму и нажмите «Применить».", "is-success");
+          showDistributionLanding();
         }
       } catch (error) {
-        showDistributionLanding();
-        setDistributionStatus(error.message || "Не удалось загрузить форму распределения.", "is-error");
+        if (distributionState.openFormRequested) {
+          showDistributionLanding();
+          setDistributionStatus(error.message || "Не удалось загрузить форму распределения.", "is-error");
+        }
       } finally {
         distributionState.isLoading = false;
       }
+    }
+
+    function handleCreateDistributionGroupClick() {
+      distributionState.openFormRequested = true;
+      loadDistributionReferenceData();
     }
 
     function setActiveView(view) {
@@ -1451,11 +1467,14 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
       mainCard.classList.remove("is-centered");
 
       if (!isDistribution) {
+        distributionState.openFormRequested = false;
         sectionBadge.textContent = content.badge;
         sectionTitle.textContent = content.title;
         sectionDescription.textContent = content.description;
       } else {
+        distributionState.openFormRequested = false;
         showDistributionLanding();
+        loadDistributionReferenceData();
       }
 
       menuButtons.forEach((button) => {
@@ -1464,7 +1483,7 @@ def render_blank_page(*, initial_member_id: str | None = None) -> str:
     }
 
     applyBulkLimitButton.addEventListener("click", applyBulkLimitFromForm);
-    createDistributionGroupButton.addEventListener("click", loadDistributionReferenceData);
+    createDistributionGroupButton.addEventListener("click", handleCreateDistributionGroupClick);
     saveDistributionButton.addEventListener("click", saveDistributionConfig);
 
     menuButtons.forEach((button) => {
