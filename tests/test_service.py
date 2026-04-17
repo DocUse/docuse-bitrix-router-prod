@@ -384,11 +384,12 @@ class PortalServiceTests(unittest.TestCase):
         fake_client = FakeBitrixClient(
             {
                 "crm.item.get": {"result": {"item": {"id": 501, "stageId": "NEW"}}},
-                "crm.item.list": lambda params: (
-                    [{"id": 1, "stageId": "NEW"}, {"id": 2, "stageId": "IN_PROGRESS"}]
-                    if params and params.get("filter", {}).get("@assignedById") == [10]
-                    else [{"id": 3, "stageId": "NEW"}, {"id": 4, "stageId": "IN_PROGRESS"}]
-                ),
+                "crm.item.list": [
+                    {"id": 1, "stageId": "NEW", "assignedById": 10},
+                    {"id": 2, "stageId": "IN_PROGRESS", "assignedById": 10},
+                    {"id": 3, "stageId": "NEW", "assignedById": 20},
+                    {"id": 4, "stageId": "IN_PROGRESS", "assignedById": 20},
+                ],
                 "crm.item.update": {"result": {"item": {"id": 501}}},
             }
         )
@@ -469,7 +470,10 @@ class PortalServiceTests(unittest.TestCase):
         fake_client = FakeBitrixClient(
             {
                 "crm.item.get": {"result": {"item": {"id": 700, "stageId": "NEW"}}},
-                "crm.item.list": [{"id": 1, "stageId": "NEW"}, {"id": 2, "stageId": "NEW"}],
+                "crm.item.list": [
+                    {"id": 1, "stageId": "NEW", "assignedById": 10},
+                    {"id": 2, "stageId": "NEW", "assignedById": 10},
+                ],
                 "crm.item.update": {"result": {"item": {"id": 700}}},
             }
         )
@@ -521,14 +525,30 @@ class PortalServiceTests(unittest.TestCase):
         fake_client = FakeBitrixClient(
             {
                 "crm.item.list": [
-                    {"id": 1, "stageId": "C10:NEW"},
-                    {"id": 2, "stageId": "C10:EXECUTING"},
-                    {"id": 3, "stageId": "C10:WON"},
+                    {"id": 1, "stageId": "C10:NEW", "assignedById": 6496},
+                    {"id": 2, "stageId": "C10:EXECUTING", "assignedById": 6496},
+                    {"id": 3, "stageId": "C10:WON", "assignedById": 6496},
                 ]
             }
         )
 
         result = count_member_load(fake_client, "ASSIGNED_BY_ID", ["NEW", "EXECUTING"], "6496")
+
+        self.assertEqual(2, result)
+
+    def test_count_member_load_uses_local_responsible_matching(self) -> None:
+        fake_client = FakeBitrixClient(
+            {
+                "crm.item.list": [
+                    {"id": 1, "stageId": "NEW", "assignedById": 6496},
+                    {"id": 2, "stageId": "IN_PROGRESS", "assignedById": 6496},
+                    {"id": 3, "stageId": "NEW", "assignedById": 9362},
+                    {"id": 4, "stageId": "WON", "assignedById": 6496},
+                ]
+            }
+        )
+
+        result = count_member_load(fake_client, "ASSIGNED_BY_ID", ["NEW", "IN_PROGRESS"], "6496")
 
         self.assertEqual(2, result)
 
