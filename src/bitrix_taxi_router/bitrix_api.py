@@ -67,10 +67,14 @@ class BitrixClient:
 
             payload = self.call(method, page_params)
             result = payload.get("result")
-            if not isinstance(result, list):
+            if isinstance(result, list):
+                page_items = result
+            elif isinstance(result, dict) and isinstance(result.get("items"), list):
+                page_items = result["items"]
+            else:
                 raise BitrixApiError(f"Bitrix API method {method} did not return a list")
 
-            for item in result:
+            for item in page_items:
                 if isinstance(item, dict):
                     items.append(item)
 

@@ -11,6 +11,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from bitrix_taxi_router.bitrix_api import BitrixApiError
+from bitrix_taxi_router.bitrix_api import BitrixClient
 from bitrix_taxi_router.database import Database
 from bitrix_taxi_router.service import PortalService
 
@@ -56,6 +57,25 @@ class PortalServiceTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_bitrix_client_call_list_accepts_items_nested_under_result(self) -> None:
+        client = BitrixClient.__new__(BitrixClient)
+        responses = [
+            {"result": {"items": [{"id": 1}, {"id": 2}]}, "next": 50},
+            {"result": {"items": [{"id": 3}]}}
+        ]
+
+        def fake_call(method: str, params: dict[str, object] | None = None) -> dict[str, object]:
+            self.assertEqual("crm.item.list", method)
+            if params and "start" in params:
+                self.assertEqual(50, params["start"])
+            return responses.pop(0)
+
+        client.call = fake_call  # type: ignore[method-assign]
+
+        result = client.call_list("crm.item.list", {"entityTypeId": 2})
+
+        self.assertEqual([{"id": 1}, {"id": 2}, {"id": 3}], result)
 
     def test_install_portal_saves_new_portal(self) -> None:
         result = self.service.install_portal(
