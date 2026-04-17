@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import socket
 from typing import Any
 from urllib import error, request
 
 from .contracts import PortalAuth
+
+BITRIX_API_TIMEOUT_SECONDS = 60
 
 
 class BitrixApiError(RuntimeError):
@@ -36,13 +39,15 @@ class BitrixClient:
         )
 
         try:
-            with request.urlopen(http_request, timeout=20) as response:
+            with request.urlopen(http_request, timeout=BITRIX_API_TIMEOUT_SECONDS) as response:
                 body = response.read().decode("utf-8", errors="replace")
         except error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")
             raise BitrixApiError(f"Bitrix API HTTP error {exc.code}: {detail or exc.reason}") from exc
         except error.URLError as exc:
             raise BitrixApiError(f"Bitrix API is unavailable: {exc.reason}") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise BitrixApiError(f"Bitrix API request timed out after {BITRIX_API_TIMEOUT_SECONDS} seconds") from exc
 
         try:
             data = json.loads(body)

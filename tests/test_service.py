@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -77,6 +78,21 @@ class PortalServiceTests(unittest.TestCase):
         result = client.call_list("crm.item.list", {"entityTypeId": 2})
 
         self.assertEqual([{"id": 1}, {"id": 2}, {"id": 3}], result)
+
+    def test_bitrix_client_call_wraps_timeout_as_bitrix_api_error(self) -> None:
+        client = BitrixClient.__new__(BitrixClient)
+        client.portal = type(
+            "Portal",
+            (),
+            {
+                "client_endpoint": "https://portal.example.bitrix24.ru/rest/",
+                "access_token": "token-1",
+            },
+        )()
+
+        with patch("bitrix_taxi_router.bitrix_api.request.urlopen", side_effect=TimeoutError):
+            with self.assertRaisesRegex(BitrixApiError, "Bitrix API request timed out"):
+                client.call("user.get")
 
     def test_install_portal_saves_new_portal(self) -> None:
         result = self.service.install_portal(
