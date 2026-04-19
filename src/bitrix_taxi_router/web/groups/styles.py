@@ -889,8 +889,175 @@ GROUPS_PAGE_STYLES = """    :root {
       gap: 18px;
     }
 
+    .stats-grid--distribution {
+      align-items: start;
+    }
+
     .stats-grid--full {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .stats-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stats-summary-item {
+      min-width: 0;
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: #f7faff;
+      border: 1px solid rgba(46, 123, 244, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stats-summary-value {
+      font-size: 28px;
+      line-height: 1.1;
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .stats-summary-title {
+      font-size: 14px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #39507c;
+    }
+
+    .stats-summary-note {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #7081a8;
+    }
+
+    .stats-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      background: #fbfdff;
+    }
+
+    .stats-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 14px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(220, 230, 245, 0.9);
+      vertical-align: top;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #24324f;
+    }
+
+    .stats-table th {
+      font-size: 13px;
+      font-weight: 700;
+      color: #5c6d96;
+      background: #f7faff;
+      white-space: nowrap;
+    }
+
+    .stats-table tbody tr:last-child td {
+      border-bottom: 1px solid rgba(220, 230, 245, 0.9);
+    }
+
+    .stats-table tfoot td {
+      font-weight: 700;
+      background: #f7faff;
+    }
+
+    .stats-table-primary {
+      font-weight: 600;
+      color: #1f2a44;
+    }
+
+    .stats-table-secondary {
+      margin-top: 2px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #7081a8;
+    }
+
+    .stats-table-empty {
+      color: #7081a8;
+      text-align: center;
+    }
+
+    .stats-scroll-area {
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .stats-scroll-area--journal {
+      max-height: 540px;
+    }
+
+    .stats-scroll-area--members {
+      max-height: 280px;
+      margin-top: 12px;
+    }
+
+    .stats-scroll-area--diagnostics {
+      max-height: 360px;
+      margin-top: 12px;
+    }
+
+    .stats-technical-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stats-disclosure {
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .stats-disclosure-summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1.4;
+      font-weight: 700;
+      color: #1f2a44;
+    }
+
+    .stats-disclosure-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .stats-disclosure-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      background: rgba(46, 123, 244, 0.08);
+      color: var(--brand-blue);
+      font-size: 12px;
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    .stats-disclosure-content {
+      padding: 0 20px 20px;
     }
 
     .stats-empty {
@@ -905,6 +1072,21 @@ GROUPS_PAGE_STYLES = """    :root {
 
     .section-panel[hidden] {
       display: none;
+    }
+
+    .reference-pill.is-success {
+      background: rgba(38, 182, 102, 0.12);
+      color: #17874a;
+    }
+
+    .reference-pill.is-warning {
+      background: rgba(242, 170, 54, 0.14);
+      color: #b87409;
+    }
+
+    .reference-pill.is-danger {
+      background: rgba(235, 72, 77, 0.12);
+      color: #c13a3f;
     }
 
     @media (max-width: 900px) {
@@ -959,5 +1141,9 @@ GROUPS_PAGE_STYLES = """    :root {
 
       .stats-grid {
         grid-template-columns: 1fr;
+      }
+
+      .stats-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }"""

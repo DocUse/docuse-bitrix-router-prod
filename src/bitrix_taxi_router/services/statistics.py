@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable
 
 from ..database import Database
 from .common import as_optional_str
 from .config_store import parse_json_object
+
+JOURNAL_LIMIT = 100
+DIAGNOSTIC_LIMIT = 200
 
 
 def get_distribution_statistics(
@@ -29,9 +33,9 @@ def get_distribution_statistics(
         FROM distribution_deal_runtime
         WHERE portal_member_id = ?
         ORDER BY updated_at DESC, created_at DESC, deal_id DESC
-        LIMIT 100
+        LIMIT ?
         """,
-        (portal_member_id,),
+        (portal_member_id, JOURNAL_LIMIT),
     )
     member_rows = database.fetch_all(
         """
@@ -48,9 +52,9 @@ def get_distribution_statistics(
         FROM diagnostic_logs
         WHERE portal_member_id = ?
         ORDER BY created_at DESC, id DESC
-        LIMIT 200
+        LIMIT ?
         """,
-        (portal_member_id,),
+        (portal_member_id, DIAGNOSTIC_LIMIT),
     )
 
     journal = [
@@ -77,6 +81,10 @@ def get_distribution_statistics(
         }
         for row in member_rows
     ]
+    member_runtime_by_user_id = {
+        str(item["user_id"]): item
+        for item in member_runtime
+    }
     diagnostics = [
         {
             "id": int(row["id"]),
@@ -90,6 +98,37 @@ def get_distribution_statistics(
         }
         for row in diagnostic_rows
     ]
+    assigned_counter = Counter(
+        str(item["assigned_user_id"])
+        for item in journal
+        if item["status"] == "assigned" and item["assigned_user_id"]
+    )
+    distribution_user_ids: list[str] = []
+    for raw_member in configured_members:
+        if not isinstance(raw_member, dict):
+            continue
+        user_id = str(raw_member.get("user_id") or "").strip()
+        if user_id:
+            distribution_user_ids.append(user_id)
+    for user_id in assigned_counter:
+        if user_id not in distribution_user_ids:
+            distribution_user_ids.append(user_id)
+    for user_id in member_runtime_by_user_id:
+        if user_id not in distribution_user_ids:
+            distribution_user_ids.append(user_id)
+    distribution_items = [
+        {
+            "user_id": user_id,
+            "user_name": member_names.get(user_id) or user_id,
+            "group_name": str(config.get("name") or "").strip() if isinstance(config, dict) else "",
+            "assigned_count": int(assigned_counter.get(user_id, 0)),
+            "last_assigned_deal_id": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_deal_id"),
+            "last_assigned_at": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_at"),
+            "updated_at": member_runtime_by_user_id.get(user_id, {}).get("updated_at"),
+            "is_group_member": user_id in member_names,
+        }
+        for user_id in distribution_user_ids
+    ]
     summary = {
         "journal_count": len(journal),
         "member_runtime_count": len(member_runtime),
@@ -97,10 +136,18 @@ def get_distribution_statistics(
         "assigned_count": sum(1 for item in journal if item["status"] == "assigned"),
         "waiting_count": sum(1 for item in journal if item["status"] == "waiting"),
         "ignored_count": sum(1 for item in journal if item["status"] == "ignored"),
+        "journal_limit": JOURNAL_LIMIT,
+        "diagnostic_limit": DIAGNOSTIC_LIMIT,
     }
     return {
         "summary": summary,
         "journal": journal,
         "members": member_runtime,
         "diagnostics": diagnostics,
+        "distribution": {
+            "group_name": str(config.get("name") or "").strip() if isinstance(config, dict) else "",
+            "group_active": bool(config.get("is_active")) if isinstance(config, dict) else False,
+            "assigned_total": int(sum(item["assigned_count"] for item in distribution_items)),
+            "items": distribution_items,
+        },
     }

@@ -94,6 +94,28 @@ GROUPS_PAGE_SCRIPT_DATA = """    async function fetchJson(url, options) {
       return true;
     }
 
+    async function ensureStatsUsersLoaded(forceReload) {
+      const distributionMemberId = await resolveDistributionMemberId();
+      if (!distributionMemberId) {
+        return;
+      }
+      const existingUsers = distributionState.referenceData && Array.isArray(distributionState.referenceData.users)
+        ? distributionState.referenceData.users
+        : [];
+      if (existingUsers.length && !forceReload) {
+        return;
+      }
+      try {
+        const payload = await fetchJson(`/api/ui/groups/reference-data/users?member_id=${encodeURIComponent(distributionMemberId)}`);
+        distributionState.referenceData = {
+          ...(distributionState.referenceData || {}),
+          users: Array.isArray(payload.items) ? payload.items : [],
+        };
+      } catch (error) {
+        console.warn("Could not load users for statistics rendering", error);
+      }
+    }
+
     async function loadStatsData(forceReload) {
       if (statsState.isLoading) {
         return;
@@ -106,10 +128,7 @@ GROUPS_PAGE_SCRIPT_DATA = """    async function fetchJson(url, options) {
       const distributionMemberId = await resolveDistributionMemberId();
       if (!distributionMemberId) {
         setStatsStatus("Не удалось определить member_id портала для загрузки статистики.", "is-error");
-        renderStatsEmpty(statsSummaryList, "Нет portal context.");
-        renderStatsEmpty(statsMembersList, "Нет portal context.");
-        renderStatsEmpty(statsDiagnosticsList, "Нет portal context.");
-        renderStatsEmpty(statsJournalList, "Нет portal context.");
+        renderStatsData({});
         return;
       }
 
@@ -117,6 +136,7 @@ GROUPS_PAGE_SCRIPT_DATA = """    async function fetchJson(url, options) {
       setStatsStatus("Загружаем журнал распределения...");
       try {
         await syncPortalContextFromBitrix(false);
+        await ensureStatsUsersLoaded(forceReload);
         const payload = await fetchJson(`/api/ui/stats?member_id=${encodeURIComponent(distributionMemberId)}`);
         statsState.data = payload;
         statsState.isLoaded = true;
@@ -124,10 +144,7 @@ GROUPS_PAGE_SCRIPT_DATA = """    async function fetchJson(url, options) {
         setStatsStatus("Журнал и runtime-данные обновлены.", "is-success");
       } catch (error) {
         setStatsStatus(error.message || "Не удалось загрузить статистику.", "is-error");
-        renderStatsEmpty(statsSummaryList, "Статистика пока недоступна.");
-        renderStatsEmpty(statsMembersList, "Статистика пока недоступна.");
-        renderStatsEmpty(statsDiagnosticsList, "Статистика пока недоступна.");
-        renderStatsEmpty(statsJournalList, "Статистика пока недоступна.");
+        renderStatsData({});
       } finally {
         statsState.isLoading = false;
       }

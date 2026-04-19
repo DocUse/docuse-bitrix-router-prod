@@ -149,13 +149,35 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         pillRow.className = "reference-pill-row";
         pills.forEach((pill) => {
           const badge = document.createElement("span");
-          badge.className = `reference-pill${pill.muted ? " is-muted" : ""}`;
+          badge.className = `reference-pill${pill.muted ? " is-muted" : ""}${pill.tone ? ` is-${pill.tone}` : ""}`;
           badge.textContent = pill.label;
           pillRow.appendChild(badge);
         });
         item.appendChild(pillRow);
       }
 
+      return item;
+    }
+
+    function createStatsMetric(title, value, note) {
+      const item = document.createElement("div");
+      item.className = "stats-summary-item";
+
+      const metricValue = document.createElement("div");
+      metricValue.className = "stats-summary-value";
+      metricValue.textContent = String(value);
+
+      const metricTitle = document.createElement("div");
+      metricTitle.className = "stats-summary-title";
+      metricTitle.textContent = title;
+
+      item.append(metricValue, metricTitle);
+      if (note) {
+        const metricNote = document.createElement("div");
+        metricNote.className = "stats-summary-note";
+        metricNote.textContent = note;
+        item.appendChild(metricNote);
+      }
       return item;
     }
 
@@ -178,20 +200,147 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       return parsed.toLocaleString("ru-RU");
     }
 
+    function formatStatsDetailValue(value) {
+      if (value === null || value === undefined || value === "") {
+        return "null";
+      }
+      if (typeof value === "object") {
+        return JSON.stringify(value);
+      }
+      return String(value);
+    }
+
+    function formatStatsDetails(details) {
+      if (!details || typeof details !== "object") {
+        return [];
+      }
+      return Object.entries(details).map(([key, value]) => `${key}: ${formatStatsDetailValue(value)}`);
+    }
+
+    function getStatsToneByStatus(status) {
+      if (status === "assigned") {
+        return "success";
+      }
+      if (status === "waiting") {
+        return "warning";
+      }
+      if (status === "error") {
+        return "danger";
+      }
+      return "muted";
+    }
+
+    function buildStatsDistributionModel(payload, summary, journal, members) {
+      if (payload && payload.distribution && Array.isArray(payload.distribution.items)) {
+        return payload.distribution;
+      }
+
+      const assignedCounter = new Map();
+      journal.forEach((item) => {
+        if (item.status !== "assigned" || !item.assigned_user_id) {
+          return;
+        }
+        assignedCounter.set(item.assigned_user_id, (assignedCounter.get(item.assigned_user_id) || 0) + 1);
+      });
+
+      const memberMap = new Map((members || []).map((member) => [member.user_id, member]));
+      const userIds = Array.from(new Set([
+        ...assignedCounter.keys(),
+        ...memberMap.keys(),
+      ]));
+      return {
+        group_name: distributionState.config && distributionState.config.name ? distributionState.config.name : "",
+        assigned_total: summary.assigned_count || 0,
+        items: userIds.map((userId) => {
+          const member = memberMap.get(userId) || {};
+          return {
+            user_id: userId,
+            group_name: distributionState.config && distributionState.config.name ? distributionState.config.name : "",
+            assigned_count: assignedCounter.get(userId) || 0,
+            last_assigned_deal_id: member.last_assigned_deal_id || null,
+            last_assigned_at: member.last_assigned_at || null,
+          };
+        }),
+      };
+    }
+
+    function renderStatsDistributionTable(distribution, summary) {
+      statsDistributionTableBody.innerHTML = "";
+      statsDistributionTableFoot.innerHTML = "";
+      const items = Array.isArray(distribution && distribution.items) ? distribution.items : [];
+
+      if (!items.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 5;
+        cell.className = "stats-table-empty";
+        cell.textContent = "По текущим runtime-данным распределение по менеджерам пока не сформировано.";
+        row.appendChild(cell);
+        statsDistributionTableBody.appendChild(row);
+        return;
+      }
+
+      items.forEach((item) => {
+        const row = document.createElement("tr");
+
+        const managerCell = document.createElement("td");
+        const managerPrimary = document.createElement("div");
+        managerPrimary.className = "stats-table-primary";
+        managerPrimary.textContent = lookupDistributionUserName(item.user_id) || item.user_name || `Пользователь ${item.user_id}`;
+        const managerSecondary = document.createElement("div");
+        managerSecondary.className = "stats-table-secondary";
+        managerSecondary.textContent = `ID: ${item.user_id}`;
+        managerCell.append(managerPrimary, managerSecondary);
+
+        const groupCell = document.createElement("td");
+        groupCell.textContent = item.group_name || distribution.group_name || "Группа не настроена";
+
+        const dealsCell = document.createElement("td");
+        dealsCell.textContent = String(item.assigned_count || 0);
+
+        const dealCell = document.createElement("td");
+        dealCell.textContent = item.last_assigned_deal_id ? `#${item.last_assigned_deal_id}` : "—";
+
+        const assignedAtCell = document.createElement("td");
+        assignedAtCell.textContent = formatStatsDate(item.last_assigned_at);
+
+        row.append(managerCell, groupCell, dealsCell, dealCell, assignedAtCell);
+        statsDistributionTableBody.appendChild(row);
+      });
+
+      const footRow = document.createElement("tr");
+      const totalLabelCell = document.createElement("td");
+      totalLabelCell.colSpan = 2;
+      totalLabelCell.textContent = "Итого";
+
+      const totalValueCell = document.createElement("td");
+      totalValueCell.textContent = String(distribution.assigned_total || 0);
+
+      const totalNoteCell = document.createElement("td");
+      totalNoteCell.colSpan = 2;
+      totalNoteCell.textContent = `Записей в журнале: ${summary.journal_count || 0}`;
+
+      footRow.append(totalLabelCell, totalValueCell, totalNoteCell);
+      statsDistributionTableFoot.appendChild(footRow);
+    }
+
     function renderStatsData(payload) {
       const summary = payload && payload.summary ? payload.summary : {};
       const diagnostics = Array.isArray(payload && payload.diagnostics) ? payload.diagnostics : [];
       const journal = Array.isArray(payload && payload.journal) ? payload.journal : [];
       const members = Array.isArray(payload && payload.members) ? payload.members : [];
+      const distribution = buildStatsDistributionModel(payload, summary, journal, members);
 
       statsSummaryList.innerHTML = "";
-      statsSummaryList.appendChild(createStatsItem("Записей в журнале", [`Всего: ${summary.journal_count || 0}`], [
-        { label: `Назначено: ${summary.assigned_count || 0}` },
-        { label: `Ожидание: ${summary.waiting_count || 0}`, muted: true },
-        { label: `Игнорировано: ${summary.ignored_count || 0}`, muted: true },
-      ]));
-      statsSummaryList.appendChild(createStatsItem("Runtime участников", [`Записей: ${summary.member_runtime_count || 0}`], []));
-      statsSummaryList.appendChild(createStatsItem("Диагностических записей", [`Всего: ${summary.diagnostic_count || 0}`], []));
+      statsSummaryList.appendChild(createStatsMetric("Записей в журнале", summary.journal_count || 0, `показаны последние ${summary.journal_limit || journal.length || 0}`));
+      statsSummaryList.appendChild(createStatsMetric("Назначено", summary.assigned_count || 0));
+      statsSummaryList.appendChild(createStatsMetric("Ожидание", summary.waiting_count || 0));
+      statsSummaryList.appendChild(createStatsMetric("Игнорировано", summary.ignored_count || 0));
+      statsSummaryList.appendChild(createStatsMetric("Диагностика", summary.diagnostic_count || 0, `показаны последние ${summary.diagnostic_limit || diagnostics.length || 0}`));
+
+      renderStatsDistributionTable(distribution, summary);
+      statsMembersCount.textContent = String(members.length);
+      statsDiagnosticsCount.textContent = String(diagnostics.length);
 
       if (!members.length) {
         renderStatsEmpty(statsMembersList, "Пока нет runtime-записей по участникам.");
@@ -201,7 +350,6 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
           statsMembersList.appendChild(createStatsItem(
             member.user_name || `Пользователь ${member.user_id}`,
             [
-              `ID: ${member.user_id}`,
               `Последняя сделка: ${member.last_assigned_deal_id || "не было"}`,
               `Последнее назначение: ${formatStatsDate(member.last_assigned_at)}`,
               `Обновлено: ${formatStatsDate(member.updated_at)}`,
@@ -217,19 +365,17 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         statsDiagnosticsList.innerHTML = "";
         diagnostics.forEach((item) => {
           const detailLines = [];
+          detailLines.push(`Источник: ${item.source}`);
           if (item.deal_id) {
             detailLines.push(`Сделка: #${item.deal_id}`);
           }
-          if (item.details && Object.keys(item.details).length) {
-            detailLines.push(`Детали: ${JSON.stringify(item.details)}`);
-          }
-          detailLines.push(`Источник: ${item.source}`);
           detailLines.push(`Время: ${formatStatsDate(item.created_at)}`);
+          detailLines.push(...formatStatsDetails(item.details));
           statsDiagnosticsList.appendChild(createStatsItem(
             item.message || "Диагностическое событие",
             detailLines,
             [
-              { label: item.level || "info", muted: item.level !== "error" },
+              { label: item.level || "info", tone: item.level === "error" ? "danger" : (item.level === "warning" ? "warning" : "muted"), muted: item.level === "info" },
             ],
           ));
         });
@@ -241,19 +387,20 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         statsJournalList.innerHTML = "";
         journal.forEach((item) => {
           const assignedTo = item.assigned_user_id
-            ? `${item.assigned_user_name || item.assigned_user_id} (${item.assigned_user_id})`
+            ? `${lookupDistributionUserName(item.assigned_user_id) || item.assigned_user_name || item.assigned_user_id} (${item.assigned_user_id})`
             : "не назначено";
           statsJournalList.appendChild(createStatsItem(
             `Сделка #${item.deal_id}`,
             [
-              `Статус: ${item.status}`,
               `Назначено: ${assignedTo}`,
               `Поле: ${item.assigned_field_id || "не заполнялось"}`,
               `Комментарий: ${item.note || "нет"}`,
+              `Создано: ${formatStatsDate(item.created_at)}`,
               `Обновлено: ${formatStatsDate(item.updated_at)}`,
             ],
             [
-              { label: item.event_type || "event" },
+              { label: item.status || "unknown", tone: getStatsToneByStatus(item.status), muted: item.status === "ignored" },
+              { label: item.event_type || "event", muted: true },
             ],
           ));
         });

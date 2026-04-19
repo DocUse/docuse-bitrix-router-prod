@@ -74,7 +74,7 @@ GROUPS_PAGE_MARKUP = """</head>
             <div class="distribution-reference-head">
               <h2 class="distribution-reference-title">Статистика</h2>
               <p class="distribution-reference-description">
-                Здесь отображается технический журнал распределения: какие сделки обрабатывались, какой статус получили и кто назначался последним.
+                Здесь отображаются последние runtime-данные по распределению сделок: сводка по назначениям, журнал обработанных сделок и технические записи для диагностики.
               </p>
             </div>
 
@@ -87,40 +87,78 @@ GROUPS_PAGE_MARKUP = """</head>
               Откройте раздел, чтобы загрузить журнал.
             </div>
 
-            <div class="stats-grid">
-              <section class="reference-card" aria-labelledby="statsSummaryTitle">
-                <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="statsSummaryTitle">Сводка</h3>
-                  <p class="reference-card-description">Короткое состояние рантайма по последним записям.</p>
-                </div>
-                <div class="reference-list" id="statsSummaryList"></div>
-              </section>
+            <section class="reference-card" aria-labelledby="statsSummaryTitle">
+              <div class="reference-card-head">
+                <h3 class="reference-card-title" id="statsSummaryTitle">Сводка</h3>
+                <p class="reference-card-description">Только ключевые показатели по последним записям runtime-журнала.</p>
+              </div>
+              <div class="stats-summary-grid" id="statsSummaryList"></div>
+            </section>
 
-              <section class="reference-card" aria-labelledby="statsMembersTitle">
+            <div class="stats-grid stats-grid--distribution">
+              <section class="reference-card" aria-labelledby="statsDistributionTitle">
                 <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="statsMembersTitle">Участники</h3>
-                  <p class="reference-card-description">Последнее назначение по каждому участнику из runtime-таблицы.</p>
+                  <h3 class="reference-card-title" id="statsDistributionTitle">Распределение по менеджерам</h3>
+                  <p class="reference-card-description">Назначения по текущей группе распределения на основе последних записей runtime-журнала.</p>
                 </div>
-                <div class="reference-list" id="statsMembersList"></div>
-              </section>
-            </div>
-
-            <div class="stats-grid stats-grid--full">
-              <section class="reference-card" aria-labelledby="statsDiagnosticsTitle">
-                <div class="reference-card-head">
-                  <h3 class="reference-card-title" id="statsDiagnosticsTitle">Диагностический журнал</h3>
-                  <p class="reference-card-description">Сохраненные backend-события: bind, hit на endpoint, ошибки и причины остановки.</p>
+                <div class="stats-table-wrap">
+                  <table class="stats-table" aria-describedby="statsDistributionTitle">
+                    <thead>
+                      <tr>
+                        <th scope="col">Менеджер</th>
+                        <th scope="col">Группа</th>
+                        <th scope="col">Сделок</th>
+                        <th scope="col">Последняя сделка</th>
+                        <th scope="col">Последнее назначение</th>
+                      </tr>
+                    </thead>
+                    <tbody id="statsDistributionTableBody"></tbody>
+                    <tfoot id="statsDistributionTableFoot"></tfoot>
+                  </table>
                 </div>
-                <div class="reference-list" id="statsDiagnosticsList"></div>
               </section>
 
               <section class="reference-card" aria-labelledby="statsJournalTitle">
                 <div class="reference-card-head">
                   <h3 class="reference-card-title" id="statsJournalTitle">Журнал сделок</h3>
-                  <p class="reference-card-description">Последние записи из runtime-журнала распределения по сделкам.</p>
+                  <p class="reference-card-description">Последние записи из runtime-журнала по сделкам с текущим статусом обработки.</p>
                 </div>
-                <div class="reference-list" id="statsJournalList"></div>
+                <div class="stats-scroll-area stats-scroll-area--journal">
+                  <div class="reference-list" id="statsJournalList"></div>
+                </div>
               </section>
+            </div>
+
+            <div class="stats-technical-stack">
+              <details class="stats-disclosure">
+                <summary class="stats-disclosure-summary">
+                  <span>Runtime участников</span>
+                  <span class="stats-disclosure-badge" id="statsMembersCount">0</span>
+                </summary>
+                <div class="stats-disclosure-content">
+                  <p class="reference-card-description">
+                    Служебные runtime-данные по последнему назначению для каждого участника.
+                  </p>
+                  <div class="stats-scroll-area stats-scroll-area--members">
+                    <div class="reference-list" id="statsMembersList"></div>
+                  </div>
+                </div>
+              </details>
+
+              <details class="stats-disclosure">
+                <summary class="stats-disclosure-summary">
+                  <span>Диагностический журнал</span>
+                  <span class="stats-disclosure-badge" id="statsDiagnosticsCount">0</span>
+                </summary>
+                <div class="stats-disclosure-content">
+                  <p class="reference-card-description">
+                    Сохраненные backend-события: bind, hit на endpoint, ошибки и причины остановки.
+                  </p>
+                  <div class="stats-scroll-area stats-scroll-area--diagnostics">
+                    <div class="reference-list" id="statsDiagnosticsList"></div>
+                  </div>
+                </div>
+              </details>
             </div>
           </div>
         </div>

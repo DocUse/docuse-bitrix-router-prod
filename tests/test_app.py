@@ -308,10 +308,18 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual(1, payload["summary"]["journal_count"])
         self.assertGreaterEqual(payload["summary"]["diagnostic_count"], 1)
         self.assertEqual(1, payload["summary"]["assigned_count"])
+        self.assertEqual(100, payload["summary"]["journal_limit"])
+        self.assertEqual(200, payload["summary"]["diagnostic_limit"])
         self.assertEqual("700", payload["journal"][0]["deal_id"])
         self.assertEqual("10", payload["journal"][0]["assigned_user_id"])
         self.assertEqual("10", payload["journal"][0]["assigned_user_name"])
         self.assertEqual("700", payload["members"][0]["last_assigned_deal_id"])
+        self.assertEqual("Основная группа", payload["distribution"]["group_name"])
+        self.assertTrue(payload["distribution"]["group_active"])
+        self.assertEqual(1, payload["distribution"]["assigned_total"])
+        self.assertEqual("10", payload["distribution"]["items"][0]["user_id"])
+        self.assertEqual(1, payload["distribution"]["items"][0]["assigned_count"])
+        self.assertEqual("700", payload["distribution"]["items"][0]["last_assigned_deal_id"])
         self.assertIn(
             "Received POST /api/bitrix/events hit.",
             [item["message"] for item in payload["diagnostics"]],

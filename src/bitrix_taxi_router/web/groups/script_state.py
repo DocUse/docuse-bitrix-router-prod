@@ -50,8 +50,12 @@ GROUPS_PAGE_SCRIPT_STATE = """    const sectionContent = {
     const saveDistributionButton = document.getElementById("saveDistributionButton");
     const statsStatus = document.getElementById("statsStatus");
     const statsSummaryList = document.getElementById("statsSummaryList");
+    const statsDistributionTableBody = document.getElementById("statsDistributionTableBody");
+    const statsDistributionTableFoot = document.getElementById("statsDistributionTableFoot");
     const statsMembersList = document.getElementById("statsMembersList");
+    const statsMembersCount = document.getElementById("statsMembersCount");
     const statsDiagnosticsList = document.getElementById("statsDiagnosticsList");
+    const statsDiagnosticsCount = document.getElementById("statsDiagnosticsCount");
     const statsJournalList = document.getElementById("statsJournalList");
     const runDeliveryCheckButton = document.getElementById("runDeliveryCheckButton");
     const refreshStatsButton = document.getElementById("refreshStatsButton");
