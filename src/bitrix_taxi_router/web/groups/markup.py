@@ -99,7 +99,7 @@ GROUPS_PAGE_MARKUP = """</head>
               <section class="reference-card" aria-labelledby="statsDistributionTitle">
                 <div class="reference-card-head">
                   <h3 class="reference-card-title" id="statsDistributionTitle">Распределение по менеджерам</h3>
-                  <p class="reference-card-description">Назначения по текущей группе распределения на основе последних записей runtime-журнала.</p>
+                  <p class="reference-card-description">Текущая CRM-нагрузка участников по выбранным статусам и их фактические лимиты в группе распределения.</p>
                 </div>
                 <div class="stats-table-wrap">
                   <table class="stats-table" aria-describedby="statsDistributionTitle">
@@ -107,7 +107,7 @@ GROUPS_PAGE_MARKUP = """</head>
                       <tr>
                         <th scope="col">Менеджер</th>
                         <th scope="col">Группа</th>
-                        <th scope="col">Назначено / лимит</th>
+                        <th scope="col">Нагрузка / лимит</th>
                         <th scope="col">Последняя сделка</th>
                         <th scope="col">Последнее назначение</th>
                       </tr>

@@ -274,7 +274,7 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         const cell = document.createElement("td");
         cell.colSpan = 5;
         cell.className = "stats-table-empty";
-        cell.textContent = "По текущим runtime-данным распределение по менеджерам пока не сформировано.";
+        cell.textContent = "По текущим CRM-данным нагрузка по менеджерам пока не сформирована.";
         row.appendChild(cell);
         statsDistributionTableBody.appendChild(row);
         return;
@@ -298,7 +298,7 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         const dealsCell = document.createElement("td");
         const dealsPrimary = document.createElement("div");
         dealsPrimary.className = "stats-table-primary";
-        dealsPrimary.textContent = String(item.assigned_count || 0);
+        dealsPrimary.textContent = String(item.current_load === 0 || item.current_load ? item.current_load : (item.assigned_count || 0));
         const dealsSecondary = document.createElement("div");
         dealsSecondary.className = "stats-table-secondary";
         dealsSecondary.textContent = `Лимит: ${item.limit === 0 || item.limit ? item.limit : "—"}`;
@@ -320,7 +320,11 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       totalLabelCell.textContent = "Итого";
 
       const totalValueCell = document.createElement("td");
-      totalValueCell.textContent = String(distribution.assigned_total || 0);
+      totalValueCell.textContent = String(
+        distribution.current_load_total === 0 || distribution.current_load_total
+          ? distribution.current_load_total
+          : (distribution.assigned_total || 0)
+      );
 
       const totalNoteCell = document.createElement("td");
       totalNoteCell.colSpan = 2;

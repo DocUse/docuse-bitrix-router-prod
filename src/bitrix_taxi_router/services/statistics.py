@@ -4,6 +4,7 @@ from collections import Counter
 from collections.abc import Callable
 
 from ..database import Database
+from .assignment import count_member_loads
 from .common import as_optional_str
 from .common import coerce_int
 from .config_store import parse_json_object
@@ -18,10 +19,16 @@ def get_distribution_statistics(
     *,
     ensure_portal_exists: Callable[[str], object],
     load_distribution_group: Callable[[str], dict[str, object] | None],
+    get_bitrix_client: Callable[[str], object],
 ) -> dict[str, object]:
     ensure_portal_exists(portal_member_id)
     config = load_distribution_group(portal_member_id)
     configured_members = config.get("members") if isinstance(config, dict) else []
+    configured_user_ids = [
+        str(member.get("user_id") or "").strip()
+        for member in configured_members
+        if isinstance(member, dict) and str(member.get("user_id") or "").strip()
+    ]
     member_names = {
         str(member.get("user_id")): str(member.get("user_id"))
         for member in configured_members
@@ -32,6 +39,16 @@ def get_distribution_statistics(
         for member in configured_members
         if isinstance(member, dict) and str(member.get("user_id") or "").strip()
     }
+    responsible_field_id = str(config.get("responsible_field_id") or "").strip() if isinstance(config, dict) else ""
+    load_stage_ids = config.get("load_stage_ids") if isinstance(config, dict) else []
+    current_load_by_user_id = {}
+    if configured_user_ids and responsible_field_id and isinstance(load_stage_ids, list):
+        current_load_by_user_id = count_member_loads(
+            get_bitrix_client(portal_member_id),
+            responsible_field_id,
+            load_stage_ids,
+            configured_user_ids,
+        )
 
     deal_rows = database.fetch_all(
         """
@@ -128,6 +145,7 @@ def get_distribution_statistics(
             "user_name": member_names.get(user_id) or user_id,
             "group_name": str(config.get("name") or "").strip() if isinstance(config, dict) else "",
             "assigned_count": int(assigned_counter.get(user_id, 0)),
+            "current_load": int(current_load_by_user_id.get(user_id, 0)),
             "limit": member_limits.get(user_id),
             "last_assigned_deal_id": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_deal_id"),
             "last_assigned_at": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_at"),
@@ -155,6 +173,7 @@ def get_distribution_statistics(
             "group_name": str(config.get("name") or "").strip() if isinstance(config, dict) else "",
             "group_active": bool(config.get("is_active")) if isinstance(config, dict) else False,
             "assigned_total": int(sum(item["assigned_count"] for item in distribution_items)),
+            "current_load_total": int(sum(item["current_load"] for item in distribution_items)),
             "items": distribution_items,
         },
     }

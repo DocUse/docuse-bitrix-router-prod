@@ -89,6 +89,7 @@ class PortalService:
             portal_member_id,
             ensure_portal_exists=self.get_portal,
             load_distribution_group=self.get_distribution_group,
+            get_bitrix_client=self._get_bitrix_client,
         )
 
     def record_diagnostic_log(

@@ -222,6 +222,16 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual({"config": None}, get_response.json())
 
     def test_stats_endpoint_returns_distribution_runtime_journal(self) -> None:
+        fake_client = FakeBitrixClient(
+            {
+                "crm.item.list": [
+                    {"id": 1, "stageId": "NEW", "assignedById": 10},
+                    {"id": 2, "stageId": "NEW", "assignedById": 10},
+                    {"id": 3, "stageId": "NEW", "assignedById": 20},
+                ],
+            }
+        )
+        self.client.app.state.portal_service.bitrix_client_factory = lambda portal: fake_client
         self.client.post(
             "/api/ui/groups/portal-context",
             json={
@@ -317,8 +327,10 @@ class AppUiTests(unittest.TestCase):
         self.assertEqual("Основная группа", payload["distribution"]["group_name"])
         self.assertTrue(payload["distribution"]["group_active"])
         self.assertEqual(1, payload["distribution"]["assigned_total"])
+        self.assertEqual(2, payload["distribution"]["current_load_total"])
         self.assertEqual("10", payload["distribution"]["items"][0]["user_id"])
         self.assertEqual(1, payload["distribution"]["items"][0]["assigned_count"])
+        self.assertEqual(2, payload["distribution"]["items"][0]["current_load"])
         self.assertEqual(3, payload["distribution"]["items"][0]["limit"])
         self.assertEqual("700", payload["distribution"]["items"][0]["last_assigned_deal_id"])
         self.assertIn(
