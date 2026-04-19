@@ -91,6 +91,32 @@ GROUPS_PAGE_SCRIPT_ACTIONS = """    async function persistDistributionConfig(pay
       }
     }
 
+    async function runEventDeliveryCheck() {
+      const distributionMemberId = await resolveDistributionMemberId();
+      if (!distributionMemberId) {
+        setStatsStatus("Не удалось определить member_id портала для запуска self-test.", "is-error");
+        return;
+      }
+
+      setStatsStatus("Запускаем self-test доставки события из Bitrix...");
+      try {
+        const payload = await fetchJson(
+          `/api/ui/stats/event-delivery-check?member_id=${encodeURIComponent(distributionMemberId)}`,
+          { method: "POST" },
+        );
+        statsState.isLoaded = false;
+        setStatsStatus(
+          `Self-test отправлен. check_id: ${payload.check_id}. Через пару секунд журнал обновится автоматически.`,
+          "is-success",
+        );
+        window.setTimeout(() => {
+          loadStatsData(true);
+        }, 2500);
+      } catch (error) {
+        setStatsStatus(error.message || "Не удалось запустить self-test доставки события.", "is-error");
+      }
+    }
+
     function handleCreateDistributionGroupClick() {
       distributionState.openFormRequested = true;
       distributionState.formMode = "create";
@@ -106,8 +132,8 @@ GROUPS_PAGE_SCRIPT_ACTIONS = """    async function persistDistributionConfig(pay
     applyBulkLimitButton.addEventListener("click", applyBulkLimitFromForm);
     createDistributionGroupButton.addEventListener("click", handleCreateDistributionGroupClick);
     saveDistributionButton.addEventListener("click", saveDistributionConfig);
+    runDeliveryCheckButton.addEventListener("click", runEventDeliveryCheck);
     refreshStatsButton.addEventListener("click", () => loadStatsData(true));
-    document.addEventListener("visibilitychange", syncStatsAutoRefresh);
 
     menuButtons.forEach((button) => {
       button.addEventListener("click", () => setActiveView(button.dataset.view));

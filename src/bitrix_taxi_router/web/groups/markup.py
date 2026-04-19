@@ -79,6 +79,7 @@ GROUPS_PAGE_MARKUP = """</head>
             </div>
 
             <div class="stats-toolbar">
+              <button class="secondary-action" id="runDeliveryCheckButton" type="button">Проверить доставку</button>
               <button class="secondary-action" id="refreshStatsButton" type="button">Обновить журнал</button>
             </div>
 
@@ -94,38 +95,39 @@ GROUPS_PAGE_MARKUP = """</head>
               <div class="stats-summary-grid" id="statsSummaryList"></div>
             </section>
 
-            <section class="reference-card" aria-labelledby="statsDistributionTitle">
-              <div class="reference-card-head">
-                <h3 class="reference-card-title" id="statsDistributionTitle">Распределение по менеджерам</h3>
-                <p class="reference-card-description">Назначения по текущей группе распределения на основе последних записей runtime-журнала и текущих лимитов группы.</p>
-              </div>
-              <div class="stats-table-wrap">
-                <table class="stats-table" aria-describedby="statsDistributionTitle">
-                  <thead>
-                    <tr>
-                      <th scope="col">Менеджер</th>
-                      <th scope="col">Группа</th>
-                      <th scope="col">Назначено</th>
-                      <th scope="col">Лимит</th>
-                      <th scope="col">Последняя сделка</th>
-                      <th scope="col">Последнее назначение</th>
-                    </tr>
-                  </thead>
-                  <tbody id="statsDistributionTableBody"></tbody>
-                  <tfoot id="statsDistributionTableFoot"></tfoot>
-                </table>
-              </div>
-            </section>
+            <div class="stats-grid stats-grid--distribution">
+              <section class="reference-card" aria-labelledby="statsDistributionTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="statsDistributionTitle">Распределение по менеджерам</h3>
+                  <p class="reference-card-description">Назначения по текущей группе распределения на основе последних записей runtime-журнала.</p>
+                </div>
+                <div class="stats-table-wrap">
+                  <table class="stats-table" aria-describedby="statsDistributionTitle">
+                    <thead>
+                      <tr>
+                        <th scope="col">Менеджер</th>
+                        <th scope="col">Группа</th>
+                        <th scope="col">Сделок</th>
+                        <th scope="col">Последняя сделка</th>
+                        <th scope="col">Последнее назначение</th>
+                      </tr>
+                    </thead>
+                    <tbody id="statsDistributionTableBody"></tbody>
+                    <tfoot id="statsDistributionTableFoot"></tfoot>
+                  </table>
+                </div>
+              </section>
 
-            <section class="reference-card" aria-labelledby="statsJournalTitle">
-              <div class="reference-card-head">
-                <h3 class="reference-card-title" id="statsJournalTitle">Журнал сделок</h3>
-                <p class="reference-card-description">Последние записи из runtime-журнала по сделкам с текущим статусом обработки.</p>
-              </div>
-              <div class="stats-scroll-area stats-scroll-area--journal">
-                <div class="reference-list" id="statsJournalList"></div>
-              </div>
-            </section>
+              <section class="reference-card" aria-labelledby="statsJournalTitle">
+                <div class="reference-card-head">
+                  <h3 class="reference-card-title" id="statsJournalTitle">Журнал сделок</h3>
+                  <p class="reference-card-description">Последние записи из runtime-журнала по сделкам с текущим статусом обработки.</p>
+                </div>
+                <div class="stats-scroll-area stats-scroll-area--journal">
+                  <div class="reference-list" id="statsJournalList"></div>
+                </div>
+              </section>
+            </div>
 
             <div class="stats-technical-stack">
               <details class="stats-disclosure">

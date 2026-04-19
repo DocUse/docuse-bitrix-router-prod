@@ -128,12 +128,6 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       }
     }
 
-    function clearStatsStatus() {
-      statsStatus.hidden = true;
-      statsStatus.textContent = "";
-      statsStatus.classList.remove("is-error", "is-success");
-    }
-
     function createStatsItem(title, metaLines, pills) {
       const item = document.createElement("div");
       item.className = "reference-item";
@@ -185,13 +179,6 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         item.appendChild(metricNote);
       }
       return item;
-    }
-
-    function formatStatsLimitValue(value) {
-      if (value === null || value === undefined || value === "") {
-        return "—";
-      }
-      return String(value);
     }
 
     function renderStatsEmpty(container, message) {
@@ -257,31 +244,19 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       });
 
       const memberMap = new Map((members || []).map((member) => [member.user_id, member]));
-      const configuredMembers = distributionState.config && Array.isArray(distributionState.config.members)
-        ? distributionState.config.members
-        : [];
-      const configuredMemberMap = new Map(
-        configuredMembers
-          .filter((member) => member && member.user_id)
-          .map((member) => [member.user_id, member])
-      );
-      const userIds = configuredMemberMap.size
-        ? Array.from(configuredMemberMap.keys())
-        : Array.from(new Set([
-          ...assignedCounter.keys(),
-          ...memberMap.keys(),
-        ]));
+      const userIds = Array.from(new Set([
+        ...assignedCounter.keys(),
+        ...memberMap.keys(),
+      ]));
       return {
         group_name: distributionState.config && distributionState.config.name ? distributionState.config.name : "",
         assigned_total: summary.assigned_count || 0,
         items: userIds.map((userId) => {
           const member = memberMap.get(userId) || {};
-          const configuredMember = configuredMemberMap.get(userId) || {};
           return {
             user_id: userId,
             group_name: distributionState.config && distributionState.config.name ? distributionState.config.name : "",
             assigned_count: assignedCounter.get(userId) || 0,
-            limit: configuredMember.limit !== undefined ? configuredMember.limit : null,
             last_assigned_deal_id: member.last_assigned_deal_id || null,
             last_assigned_at: member.last_assigned_at || null,
           };
@@ -297,7 +272,7 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       if (!items.length) {
         const row = document.createElement("tr");
         const cell = document.createElement("td");
-        cell.colSpan = 6;
+        cell.colSpan = 5;
         cell.className = "stats-table-empty";
         cell.textContent = "По текущим runtime-данным распределение по менеджерам пока не сформировано.";
         row.appendChild(cell);
@@ -323,16 +298,13 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
         const dealsCell = document.createElement("td");
         dealsCell.textContent = String(item.assigned_count || 0);
 
-        const limitCell = document.createElement("td");
-        limitCell.textContent = formatStatsLimitValue(item.limit);
-
         const dealCell = document.createElement("td");
         dealCell.textContent = item.last_assigned_deal_id ? `#${item.last_assigned_deal_id}` : "—";
 
         const assignedAtCell = document.createElement("td");
         assignedAtCell.textContent = formatStatsDate(item.last_assigned_at);
 
-        row.append(managerCell, groupCell, dealsCell, limitCell, dealCell, assignedAtCell);
+        row.append(managerCell, groupCell, dealsCell, dealCell, assignedAtCell);
         statsDistributionTableBody.appendChild(row);
       });
 
@@ -344,14 +316,11 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       const totalValueCell = document.createElement("td");
       totalValueCell.textContent = String(distribution.assigned_total || 0);
 
-      const totalLimitCell = document.createElement("td");
-      totalLimitCell.textContent = "—";
+      const totalNoteCell = document.createElement("td");
+      totalNoteCell.colSpan = 2;
+      totalNoteCell.textContent = `Записей в журнале: ${summary.journal_count || 0}`;
 
-      const totalTailCell = document.createElement("td");
-      totalTailCell.colSpan = 2;
-      totalTailCell.textContent = "";
-
-      footRow.append(totalLabelCell, totalValueCell, totalLimitCell, totalTailCell);
+      footRow.append(totalLabelCell, totalValueCell, totalNoteCell);
       statsDistributionTableFoot.appendChild(footRow);
     }
 
@@ -363,9 +332,11 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       const distribution = buildStatsDistributionModel(payload, summary, journal, members);
 
       statsSummaryList.innerHTML = "";
+      statsSummaryList.appendChild(createStatsMetric("Записей в журнале", summary.journal_count || 0, `показаны последние ${summary.journal_limit || journal.length || 0}`));
       statsSummaryList.appendChild(createStatsMetric("Назначено", summary.assigned_count || 0));
       statsSummaryList.appendChild(createStatsMetric("Ожидание", summary.waiting_count || 0));
       statsSummaryList.appendChild(createStatsMetric("Игнорировано", summary.ignored_count || 0));
+      statsSummaryList.appendChild(createStatsMetric("Диагностика", summary.diagnostic_count || 0, `показаны последние ${summary.diagnostic_limit || diagnostics.length || 0}`));
 
       renderStatsDistributionTable(distribution, summary);
       statsMembersCount.textContent = String(members.length);
@@ -677,7 +648,6 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       const content = sectionContent[view] || sectionContent.overview;
       const isDistribution = view === "distribution";
       const isStats = view === "stats";
-      statsState.isActiveView = isStats;
 
       defaultPanel.hidden = isDistribution || isStats;
       statsPanel.hidden = !isStats;
@@ -698,7 +668,6 @@ GROUPS_PAGE_SCRIPT_RENDER = """    function setDistributionStatus(message, tone)
       } else {
         loadStatsData(false);
       }
-      syncStatsAutoRefresh();
 
       menuButtons.forEach((button) => {
         button.classList.toggle("is-active", button.dataset.view === view);

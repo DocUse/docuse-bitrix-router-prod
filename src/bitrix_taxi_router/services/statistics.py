@@ -21,17 +21,6 @@ def get_distribution_statistics(
     ensure_portal_exists(portal_member_id)
     config = load_distribution_group(portal_member_id)
     configured_members = config.get("members") if isinstance(config, dict) else []
-    configured_member_details: dict[str, dict[str, object]] = {}
-    for member in configured_members:
-        if not isinstance(member, dict):
-            continue
-        user_id = str(member.get("user_id") or "").strip()
-        if not user_id:
-            continue
-        raw_limit = member.get("limit")
-        configured_member_details[user_id] = {
-            "limit": int(raw_limit) if raw_limit not in (None, "") else None,
-        }
     member_names = {
         str(member.get("user_id")): str(member.get("user_id"))
         for member in configured_members
@@ -115,26 +104,28 @@ def get_distribution_statistics(
         if item["status"] == "assigned" and item["assigned_user_id"]
     )
     distribution_user_ids: list[str] = []
-    if configured_member_details:
-        distribution_user_ids.extend(configured_member_details.keys())
-    else:
-        for user_id in assigned_counter:
-            if user_id not in distribution_user_ids:
-                distribution_user_ids.append(user_id)
-        for user_id in member_runtime_by_user_id:
-            if user_id not in distribution_user_ids:
-                distribution_user_ids.append(user_id)
+    for raw_member in configured_members:
+        if not isinstance(raw_member, dict):
+            continue
+        user_id = str(raw_member.get("user_id") or "").strip()
+        if user_id:
+            distribution_user_ids.append(user_id)
+    for user_id in assigned_counter:
+        if user_id not in distribution_user_ids:
+            distribution_user_ids.append(user_id)
+    for user_id in member_runtime_by_user_id:
+        if user_id not in distribution_user_ids:
+            distribution_user_ids.append(user_id)
     distribution_items = [
         {
             "user_id": user_id,
             "user_name": member_names.get(user_id) or user_id,
             "group_name": str(config.get("name") or "").strip() if isinstance(config, dict) else "",
             "assigned_count": int(assigned_counter.get(user_id, 0)),
-            "limit": configured_member_details.get(user_id, {}).get("limit"),
             "last_assigned_deal_id": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_deal_id"),
             "last_assigned_at": member_runtime_by_user_id.get(user_id, {}).get("last_assigned_at"),
             "updated_at": member_runtime_by_user_id.get(user_id, {}).get("updated_at"),
-            "is_group_member": user_id in configured_member_details,
+            "is_group_member": user_id in member_names,
         }
         for user_id in distribution_user_ids
     ]
