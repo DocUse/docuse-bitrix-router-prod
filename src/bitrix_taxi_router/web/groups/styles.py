@@ -890,6 +890,7 @@ GROUPS_PAGE_STYLES = """    :root {
     }
 
     .stats-grid--distribution {
+      grid-template-columns: minmax(0, 1fr);
       align-items: start;
     }
 
